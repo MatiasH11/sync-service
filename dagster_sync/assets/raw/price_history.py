@@ -2,7 +2,7 @@ from dagster import asset, AssetExecutionContext, RetryPolicy, MonthlyPartitions
 
 from dagster_sync.resources import PricesDbResource, WarehouseResource
 
-PARTITIONS = MonthlyPartitionsDefinition(start_date='2023-01-01')
+PARTITIONS = MonthlyPartitionsDefinition(start_date='2023-01-01', end_offset=1)
 
 COLUMNS = ['codigoarticulo', 'precioactual', 'fechamodificacion', 'precio']
 

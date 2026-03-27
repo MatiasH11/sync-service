@@ -4,7 +4,7 @@ from dagster_sync.resources import SalesDbResource, WarehouseResource
 from dagster_sync.types import RawSaleRow
 from dagster_sync.assets.raw._sales_query import SALES_TABLES, SalesTableConfig, build_sales_query
 
-PARTITIONS = MonthlyPartitionsDefinition(start_date='2023-01-01')
+PARTITIONS = MonthlyPartitionsDefinition(start_date='2023-01-01', end_offset=1)
 
 COLUMNS = list(RawSaleRow.__annotations__.keys())
 
@@ -33,7 +33,7 @@ def _make_raw_sales_asset(config: SalesTableConfig):
 
         inserted = warehouse.delete_source_month_and_insert(
             table='raw.raw_sales',
-            month_column='fechahoracomprobante',
+            month_column='fecha_comprobante',
             source_column='db',
             source_value=db,
             partition_start=start,
@@ -51,8 +51,8 @@ def _make_raw_sales_asset(config: SalesTableConfig):
 
 
 _assets_by_db = {
-    asset.name.removeprefix('raw_sales_').upper(): asset
-    for asset in (_make_raw_sales_asset(t) for t in SALES_TABLES)
+    t['db']: _make_raw_sales_asset(t)
+    for t in SALES_TABLES
 }
 
 raw_sales_dimds   = _assets_by_db['DIMDS']

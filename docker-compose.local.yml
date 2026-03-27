@@ -2,7 +2,9 @@ version: '3.8'
 
 services:
     postgres:
-        image: postgres:16
+        build:
+            context: .
+            dockerfile: Dockerfile.postgres
         environment:
             POSTGRES_DB: analytics
             POSTGRES_USER: dagster
@@ -33,6 +35,7 @@ services:
             - '3000:3000'
         volumes:
             - .:/app
+            - dagster_home:/app/.dagster
         env_file:
             - .env.local
         environment:
@@ -45,3 +48,4 @@ services:
 
 volumes:
     postgres_data:
+    dagster_home:

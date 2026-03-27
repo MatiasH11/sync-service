@@ -1,0 +1,7 @@
+FROM postgres:16
+
+# tzdata 2022g+ (used in Debian 13) no longer installs backward-compat timezone
+# links by default. IANA explicitly defines America/Buenos_Aires as a valid alias
+# for America/Argentina/Buenos_Aires in its backward-compat database (file: backward).
+RUN ln -sf /usr/share/zoneinfo/America/Argentina/Buenos_Aires \
+           /usr/share/zoneinfo/America/Buenos_Aires

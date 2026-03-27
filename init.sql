@@ -9,29 +9,28 @@ CREATE SCHEMA IF NOT EXISTS analytics;
 -- =============================================
 
 CREATE TABLE IF NOT EXISTS raw.raw_sales (
-    codigocliente VARCHAR(20),
-    codigoarticulo VARCHAR(20),
-    codigo_particular VARCHAR(20),
-    cliente_codigo_particular VARCHAR(20),
-    descripcion_articulo VARCHAR(200),
-    unidades DOUBLE PRECISION,
-    precio DOUBLE PRECISION,
-    precio_prov DOUBLE PRECISION,
-    tipocomprobante VARCHAR(10),
-    numerocomprobante VARCHAR(20),
-    nropuntodeventa INTEGER,
-    codigodeposito VARCHAR(10),
-    tipo_consumo VARCHAR(10),
-    unidadesxrubro DOUBLE PRECISION,
-    codigosuperrubro INTEGER,
-    descripcion_rubro VARCHAR(100),
-    fechahoracomprobante TIMESTAMP,
-    marca_id VARCHAR(20),
-    marca VARCHAR(100),
-    linea_id VARCHAR(20),
-    linea VARCHAR(100),
-    codigomarca INTEGER,
-    db VARCHAR(20)
+    -- Comprobante
+    tipo_comprobante          VARCHAR(15),
+    numero_comprobante        DOUBLE PRECISION,
+    nro_punto_venta           BIGINT,
+    db                        VARCHAR(20),
+    tipo_consumo              VARCHAR(10),
+    -- Temporal
+    fecha_comprobante         TIMESTAMP,
+    -- Cliente (de CABEZA)
+    codigo_cliente            VARCHAR(20),
+    razon_social_cliente      TEXT,
+    descuento_comprobante     DOUBLE PRECISION,
+    -- Artículo (de CUERPO)
+    codigo_articulo           VARCHAR(20),
+    codigo_particular_articulo VARCHAR(40),
+    descripcion_articulo      VARCHAR(255),
+    cantidad_articulo         DOUBLE PRECISION,
+    precio_unitario_articulo  DOUBLE PRECISION,
+    precio_total_articulo     DOUBLE PRECISION,
+    costo_venta_articulo      DOUBLE PRECISION,
+    descuento_articulo        DOUBLE PRECISION,
+    codigo_deposito_articulo  VARCHAR(20)
 );
 
 CREATE TABLE IF NOT EXISTS raw.raw_clients (
@@ -91,13 +90,19 @@ CREATE TABLE IF NOT EXISTS raw.raw_price_history (
 -- =============================================
 
 CREATE INDEX IF NOT EXISTS idx_raw_sales_fecha
-    ON raw.raw_sales (fechahoracomprobante);
+    ON raw.raw_sales (fecha_comprobante);
 
 CREATE INDEX IF NOT EXISTS idx_raw_sales_cliente
-    ON raw.raw_sales (codigocliente);
+    ON raw.raw_sales (codigo_cliente);
+
+CREATE INDEX IF NOT EXISTS idx_raw_sales_articulo
+    ON raw.raw_sales (codigo_articulo);
+
+CREATE INDEX IF NOT EXISTS idx_raw_sales_db_fecha
+    ON raw.raw_sales (db, fecha_comprobante);
 
 CREATE INDEX IF NOT EXISTS idx_raw_sales_yearmonth
-    ON raw.raw_sales (fechahoracomprobante, codigocliente);
+    ON raw.raw_sales (fecha_comprobante, codigo_cliente);
 
 CREATE INDEX IF NOT EXISTS idx_raw_price_history_articulo
     ON raw.raw_price_history (codigoarticulo, fechamodificacion);
