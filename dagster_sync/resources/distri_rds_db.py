@@ -4,8 +4,8 @@ import mysql.connector
 from dagster import ConfigurableResource
 
 
-class SalesDbResource(ConfigurableResource):
-    """Base de datos transaccional de ventas (MySQL AWS RDS)."""
+class DistriRdsDbResource(ConfigurableResource):
+    """Base de datos MySQL en AWS RDS (ventas, catálogo, clientes)."""
 
     host: str = os.getenv('AWS_DISTRI_DB_HOST', 'localhost')
     port: int = int(os.getenv('AWS_DISTRI_DB_PORT', '3306'))

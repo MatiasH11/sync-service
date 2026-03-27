@@ -11,6 +11,7 @@ COLUMNS = ['codigoarticulo', 'precioactual', 'fechamodificacion', 'precio']
     group_name='raw',
     partitions_def=PARTITIONS,
     retry_policy=RetryPolicy(max_retries=3, delay=60),
+    op_tags={'resource': 'firebird'},
     description='Extrae historial de precios de Firebird → raw.raw_price_history (particionado por mes)',
 )
 def raw_price_history(

@@ -67,6 +67,15 @@ CREATE TABLE IF NOT EXISTS raw.raw_clients (
     sucursales                  JSONB
 );
 
+CREATE TABLE IF NOT EXISTS raw.raw_articulos (
+    codigo_articulo    VARCHAR(20) PRIMARY KEY,
+    codigo_particular  VARCHAR(40),
+    descripcion        TEXT,
+    codigo_rubro       VARCHAR(20),
+    codigo_marca       VARCHAR(20),
+    descripcion_marca  TEXT
+);
+
 CREATE TABLE IF NOT EXISTS raw.raw_excel_clients (
     codigocliente VARCHAR(20),
     codigo_principal VARCHAR(20),
@@ -83,6 +92,21 @@ CREATE TABLE IF NOT EXISTS raw.raw_price_history (
     precioactual DOUBLE PRECISION,
     fechamodificacion TIMESTAMP,
     precio DOUBLE PRECISION
+);
+
+CREATE TABLE IF NOT EXISTS raw.raw_rubros (
+    codigo_rubro             VARCHAR(20) PRIMARY KEY,
+    codigo_super_rubro       VARCHAR(20),
+    descripcion_super_rubro  VARCHAR(255),
+    unidades_super_rubro     DOUBLE PRECISION
+);
+
+CREATE TABLE IF NOT EXISTS raw.raw_marcas_lineas (
+    codigo_marca_int  INTEGER PRIMARY KEY,
+    marca_id          VARCHAR(20),
+    marca             VARCHAR(255),
+    linea_id          VARCHAR(20),
+    linea             VARCHAR(255)
 );
 
 -- =============================================

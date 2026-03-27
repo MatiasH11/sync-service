@@ -8,6 +8,9 @@ from dagster import (
 from dagster_sync.assets import (
     raw_clients,
     raw_sellers,
+    raw_articulos,
+    raw_rubros,
+    raw_marcas_lineas,
     raw_price_history,
     raw_sales_dimds,
     raw_sales_dimppal,
@@ -15,15 +18,19 @@ from dagster_sync.assets import (
     raw_sales_disppal,
 )
 from dagster_sync.resources import (
-    SalesDbResource,
+    DistriRdsDbResource,
     PricesDbResource,
     WarehouseResource,
     ClientServiceResource,
+    ProductServiceResource,
 )
 
 ALL_ASSETS = [
     raw_clients,
     raw_sellers,
+    raw_articulos,
+    raw_rubros,
+    raw_marcas_lineas,
     raw_price_history,
     raw_sales_dimds,
     raw_sales_dimppal,
@@ -38,8 +45,14 @@ ALL_RAW_SALES = [raw_sales_dimds, raw_sales_dimppal, raw_sales_disds, raw_sales_
 
 full_sync_job = define_asset_job(
     name='full_sync',
-    selection=[raw_clients, raw_sellers],
-    description='Sync completo: clientes y vendedores',
+    selection=[raw_clients, raw_sellers, raw_articulos, raw_rubros, raw_marcas_lineas],
+    description='Sync completo: clientes, vendedores, artículos y dimensiones',
+)
+
+articulos_sync_job = define_asset_job(
+    name='articulos_sync',
+    selection=[raw_articulos, raw_rubros, raw_marcas_lineas],
+    description='Sync de artículos (product-service) y dimensiones MySQL',
 )
 
 clients_sync_job = define_asset_job(
@@ -77,6 +90,13 @@ clients_sync = ScheduleDefinition(
     description='Sync de clientes dos veces por dia (6am y 6pm)',
 )
 
+articulos_sync = ScheduleDefinition(
+    job=articulos_sync_job,
+    cron_schedule='0 4 * * *',
+    name='articulos_sync',
+    description='Sync de artículos una vez por dia (4am)',
+)
+
 sales_sync = build_schedule_from_partitioned_job(
     sales_job,
     name='daily_sales_sync',
@@ -101,13 +121,15 @@ defs = Definitions(
     schedules=[
         daily_full_sync,
         clients_sync,
+        articulos_sync,
         sales_sync,
         price_history_sync,
     ],
     resources={
-        'sales_db': SalesDbResource(),
+        'distri_rds': DistriRdsDbResource(),
         'prices_db': PricesDbResource(),
         'warehouse': WarehouseResource(),
         'client_service': ClientServiceResource(),
+        'product_service': ProductServiceResource(),
     },
 )

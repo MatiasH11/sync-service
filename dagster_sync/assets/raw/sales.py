@@ -1,6 +1,6 @@
 from dagster import asset, AssetExecutionContext, RetryPolicy, MonthlyPartitionsDefinition
 
-from dagster_sync.resources import SalesDbResource, WarehouseResource
+from dagster_sync.resources import DistriRdsDbResource, WarehouseResource
 from dagster_sync.types import RawSaleRow
 from dagster_sync.assets.raw._sales_query import SALES_TABLES, SalesTableConfig, build_sales_query
 
@@ -17,11 +17,12 @@ def _make_raw_sales_asset(config: SalesTableConfig):
         group_name='raw',
         partitions_def=PARTITIONS,
         retry_policy=RetryPolicy(max_retries=3, delay=60),
+        op_tags={'resource': 'mysql'},
         description=f'Extrae ventas de {db} MySQL → raw.raw_sales',
     )
     def _asset(
         context: AssetExecutionContext,
-        sales_db: SalesDbResource,
+        distri_rds: DistriRdsDbResource,
         warehouse: WarehouseResource,
     ) -> None:
         start, end = context.partition_time_window
@@ -29,7 +30,7 @@ def _make_raw_sales_asset(config: SalesTableConfig):
         context.log.info(f'[{db}] Extracting {context.partition_key} ({start} → {end})')
 
         query = build_sales_query(config['cabeza'], config['cuerpo'], config['tipo_consumo'], db)
-        rows: list[RawSaleRow] = sales_db.query(query, (start, end))
+        rows: list[RawSaleRow] = distri_rds.query(query, (start, end))
 
         inserted = warehouse.delete_source_month_and_insert(
             table='raw.raw_sales',

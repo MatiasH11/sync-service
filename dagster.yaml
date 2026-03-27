@@ -1,0 +1,12 @@
+run_coordinator:
+  module: dagster.core.run_coordinator
+  class: QueuedRunCoordinator
+  config:
+    max_concurrent_runs: 10
+    tag_concurrency_limits:
+      - key: "resource"
+        value: "firebird"
+        limit: 1       # Firebird legacy — solo 1 conexion simultanea
+      - key: "resource"
+        value: "mysql"
+        limit: 3       # MySQL RDS — hasta 3 particiones en paralelo

@@ -36,6 +36,7 @@ services:
         volumes:
             - .:/app
             - dagster_home:/app/.dagster
+            - ./dagster.yaml:/app/.dagster/dagster.yaml
         env_file:
             - .env.local
         environment:
