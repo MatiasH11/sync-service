@@ -1,0 +1,27 @@
+version: 2
+
+sources:
+  - name: raw
+    schema: raw
+    description: "Tablas raw cargadas por Dagster desde las fuentes originales"
+    tables:
+      - name: raw_sales
+        description: "Líneas de venta de las 4 fuentes MySQL (DIMDS, DIMPPAL, DISDS, DISPPAL)"
+
+      - name: raw_clients
+        description: "Clientes desde client-service (incluye principales y cuentas Excel)"
+
+      - name: raw_sellers
+        description: "Vendedores activos desde MySQL"
+
+      - name: raw_articulos
+        description: "Artículos desde product-service API"
+
+      - name: raw_rubros
+        description: "Jerarquía de rubros y super-rubros desde MySQL"
+
+      - name: raw_marcas_lineas
+        description: "Marcas y líneas internas desde MySQL (MarcasxLineas)"
+
+      - name: raw_price_history
+        description: "Historial de cambios de precio proveedor desde Firebird"

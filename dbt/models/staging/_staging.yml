@@ -1,0 +1,244 @@
+version: 2
+
+models:
+  - name: stg_sales
+    description: >
+      Líneas de venta limpias y tipadas desde raw_sales.
+      Una fila por línea de artículo en un comprobante.
+      Los filtros de negocio (ANULADA, tipos de comprobante, artículos excluidos)
+      ya fueron aplicados en la extracción por Dagster.
+    columns:
+      - name: tipo_comprobante
+        description: "FA, FB, NCA, NCB, NDA, NDB, RE"
+        tests:
+          - not_null
+
+      - name: numero_comprobante
+        description: "Número identificador del comprobante"
+        tests:
+          - not_null
+
+      - name: nro_punto_venta
+        description: "Número de punto de venta"
+        tests:
+          - not_null
+
+      - name: fuente
+        description: "Base de datos de origen: DIMDS, DIMPPAL, DISDS, DISPPAL"
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['DIMDS', 'DIMPPAL', 'DISDS', 'DISPPAL']
+
+      - name: tipo_consumo
+        description: "DS (distribución) o PPAL (principal)"
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['DS', 'PPAL']
+
+      - name: fecha_comprobante
+        description: "Fecha y hora del comprobante (TIMESTAMP)"
+        tests:
+          - not_null
+
+      - name: codigo_cliente
+        description: "Código del cliente en el comprobante"
+        tests:
+          - not_null
+
+      - name: razon_social_cliente
+        description: "Razón social del cliente en el momento de la venta"
+
+      - name: descuento_comprobante
+        description: "Porcentaje de descuento aplicado a nivel de comprobante (cabecera)"
+
+      - name: codigo_articulo
+        description: "Código del artículo"
+        tests:
+          - not_null
+
+      - name: codigo_particular_articulo
+        description: "Código particular del artículo (código de proveedor)"
+
+      - name: descripcion_articulo
+        description: "Descripción del artículo en el momento de la venta"
+
+      - name: cantidad_articulo
+        description: "Cantidad de unidades vendidas"
+        tests:
+          - not_null
+
+      - name: precio_unitario_articulo
+        description: "Precio unitario sin descuentos"
+
+      - name: precio_total_articulo
+        description: "Precio total de la línea (cantidad × precio con descuentos aplicados)"
+        tests:
+          - not_null
+
+      - name: costo_venta_articulo
+        description: "Costo de venta del artículo"
+
+      - name: descuento_articulo
+        description: "Porcentaje de descuento aplicado a nivel de artículo (cuerpo)"
+
+      - name: codigo_deposito_articulo
+        description: "Código del depósito desde donde se despachó el artículo"
+
+  - name: stg_clients
+    description: >
+      Clientes desde client-service, limpios y renombrados.
+      Incluye tanto clientes principales como cuentas Excel (es_excel = true).
+      Los campos JSONB (conditions, discounts, campos_dinamicos, sucursales)
+      se preservan para uso en intermediate si se necesitan.
+    columns:
+      - name: codigo_cliente
+        description: "Código único del cliente (PK)"
+        tests:
+          - not_null
+          - unique
+
+      - name: codigo_particular
+        description: "Código particular del cliente (código proveedor/externo)"
+
+      - name: cuenta_principal_codigo
+        description: "Código del cliente principal si este es una cuenta secundaria (vacío si es principal)"
+
+      - name: cuenta_principal_particular
+        description: "Código particular de la cuenta principal"
+
+      - name: razon_social
+        description: "Razón social del cliente"
+        tests:
+          - not_null
+
+      - name: nombre_fantasia
+        description: "Nombre de fantasía o nombre comercial"
+
+      - name: codigo_vendedor
+        description: "Código del vendedor asignado al cliente"
+
+      - name: codigo_zona
+        description: "Código de zona comercial del cliente"
+
+      - name: es_gm
+        description: "True si el cliente opera bajo esquema GM (precio proveedor + descuento)"
+        tests:
+          - not_null
+
+      - name: es_ag
+        description: "True si el cliente es del segmento AG (agropecuario)"
+        tests:
+          - not_null
+
+      - name: es_excel
+        description: "True si el cliente fue cargado vía planilla Excel (cuenta especial)"
+        tests:
+          - not_null
+
+      - name: es_agro
+        description: "True si el cliente pertenece al canal agro"
+
+      - name: es_plan_gomeria
+        description: "True si el cliente está en el plan gomería"
+
+  - name: stg_sellers
+    description: "Vendedores activos desde MySQL. El filtro activo = 1 ya se aplica en Dagster."
+    columns:
+      - name: codigo_vendedor
+        description: "Código único del vendedor (PK)"
+        tests:
+          - not_null
+          - unique
+      - name: nombre_vendedor
+        description: "Nombre del vendedor (con TRIM aplicado)"
+        tests:
+          - not_null
+
+  - name: stg_articulos
+    description: "Artículos desde product-service API con descripción y clasificación."
+    columns:
+      - name: codigo_articulo
+        description: "Código único del artículo (PK)"
+        tests:
+          - not_null
+          - unique
+      - name: codigo_particular
+        description: "Código particular / código de proveedor"
+      - name: descripcion
+        description: "Descripción del artículo (con TRIM aplicado)"
+        tests:
+          - not_null
+      - name: codigo_rubro
+        description: "Código de rubro — FK a stg_rubros"
+        tests:
+          - not_null
+      - name: codigo_marca
+        description: "Código de marca — FK a stg_marcas_lineas"
+      - name: descripcion_marca
+        description: "Descripción de la marca (con TRIM aplicado)"
+
+  - name: stg_rubros
+    description: "Jerarquía de rubros y super-rubros desde MySQL con unidades mínimas por rubro."
+    columns:
+      - name: codigo_rubro
+        description: "Código único del rubro (PK)"
+        tests:
+          - not_null
+          - unique
+      - name: codigo_super_rubro
+        description: "Código del super-rubro al que pertenece"
+        tests:
+          - not_null
+      - name: descripcion_super_rubro
+        description: "Descripción del super-rubro (puede ser 'SIN SUPERRUBRO')"
+        tests:
+          - not_null
+      - name: unidades_min_rubro
+        description: "Unidades mínimas de compra para este rubro (usado en lógica SR)"
+        tests:
+          - not_null
+
+  - name: stg_marcas_lineas
+    description: "Marcas y líneas internas desde MySQL. Un registro por combinación marca-línea."
+    columns:
+      - name: codigo_marca
+        description: "Código entero de la marca (PK, antes codigo_marca_int en raw)"
+        tests:
+          - not_null
+          - unique
+      - name: marca_id
+        description: "ID string de la marca (usado para joins con artículos y descuentos Lupa)"
+        tests:
+          - not_null
+      - name: marca
+        description: "Nombre de la marca (con TRIM aplicado)"
+        tests:
+          - not_null
+      - name: linea_id
+        description: "ID string de la línea de producto"
+      - name: linea
+        description: "Nombre de la línea de producto (con TRIM aplicado)"
+
+  - name: stg_price_history
+    description: >
+      Historial de cambios de precio proveedor desde Firebird.
+      Particionado por mes en raw. Usado para el ASOF join en int_price_at_sale.
+    columns:
+      - name: codigo_articulo
+        description: "Código del artículo"
+        tests:
+          - not_null
+      - name: precio_actual_proveedor
+        description: "Precio proveedor vigente al momento del registro (precioactual en raw)"
+        tests:
+          - not_null
+      - name: fecha_modificacion
+        description: "Fecha y hora en que entró en vigencia este precio"
+        tests:
+          - not_null
+      - name: precio_cambio
+        description: "Precio registrado en el cambio específico (precio en raw)"
+        tests:
+          - not_null

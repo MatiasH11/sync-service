@@ -1,9 +1,13 @@
+from pathlib import Path
+
 from dagster import (
     Definitions,
     ScheduleDefinition,
     define_asset_job,
     build_schedule_from_partitioned_job,
 )
+from dagster import AssetKey
+from dagster_dbt import DbtCliResource, DbtProject, DagsterDbtTranslator, dbt_assets
 
 from dagster_sync.assets import (
     raw_clients,
@@ -16,6 +20,7 @@ from dagster_sync.assets import (
     raw_sales_dimppal,
     raw_sales_disds,
     raw_sales_disppal,
+    raw_sales,
 )
 from dagster_sync.resources import (
     DistriRdsDbResource,
@@ -24,6 +29,46 @@ from dagster_sync.resources import (
     ClientServiceResource,
     ProductServiceResource,
 )
+
+# --- dbt project ---
+
+DBT_PROJECT_DIR = Path(__file__).parent.parent / 'dbt'
+
+dbt_project = DbtProject(
+    project_dir=DBT_PROJECT_DIR,
+    profiles_dir=DBT_PROJECT_DIR,
+)
+dbt_project.prepare_if_dev()
+
+# Las fuentes dbt (sources.yml) necesitan mapearse a los assets Dagster existentes
+# para evitar nodos duplicados en el grafo. raw_sales es especial: 4 assets Dagster
+# escriben a la misma tabla, así que se deja sin mapeo directo.
+_DBT_SOURCE_TO_DAGSTER_KEY: dict[str, AssetKey] = {
+    'raw_articulos':     AssetKey('raw_articulos'),
+    'raw_clients':       AssetKey('raw_clients'),
+    'raw_sellers':       AssetKey('raw_sellers'),
+    'raw_rubros':        AssetKey('raw_rubros'),
+    'raw_marcas_lineas': AssetKey('raw_marcas_lineas'),
+    'raw_price_history': AssetKey('raw_price_history'),
+    'raw_sales':         AssetKey('raw_sales'),
+}
+
+
+class SyncDbtTranslator(DagsterDbtTranslator):
+    def get_asset_key(self, dbt_resource_props: dict) -> AssetKey:
+        if dbt_resource_props['resource_type'] == 'source':
+            name = dbt_resource_props['name']
+            if name in _DBT_SOURCE_TO_DAGSTER_KEY:
+                return _DBT_SOURCE_TO_DAGSTER_KEY[name]
+        return super().get_asset_key(dbt_resource_props)
+
+
+@dbt_assets(
+    manifest=dbt_project.manifest_path,
+    dagster_dbt_translator=SyncDbtTranslator(),
+)
+def sync_dbt_assets(context, dbt: DbtCliResource):
+    yield from dbt.cli(['build'], context=context).stream()
 
 ALL_ASSETS = [
     raw_clients,
@@ -36,9 +81,11 @@ ALL_ASSETS = [
     raw_sales_dimppal,
     raw_sales_disds,
     raw_sales_disppal,
+    raw_sales,
+    sync_dbt_assets,
 ]
 
-ALL_RAW_SALES = [raw_sales_dimds, raw_sales_dimppal, raw_sales_disds, raw_sales_disppal]
+ALL_RAW_SALES = [raw_sales_dimds, raw_sales_dimppal, raw_sales_disds, raw_sales_disppal, raw_sales]
 
 
 # --- Jobs ---
@@ -131,5 +178,9 @@ defs = Definitions(
         'warehouse': WarehouseResource(),
         'client_service': ClientServiceResource(),
         'product_service': ProductServiceResource(),
+        'dbt': DbtCliResource(
+            project_dir=str(DBT_PROJECT_DIR),
+            profiles_dir=str(DBT_PROJECT_DIR),
+        ),
     },
 )

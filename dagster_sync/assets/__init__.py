@@ -9,6 +9,7 @@ from .raw import (
     raw_sales_dimppal,
     raw_sales_disds,
     raw_sales_disppal,
+    raw_sales,
 )
 
 __all__ = [
@@ -22,4 +23,5 @@ __all__ = [
     'raw_sales_dimppal',
     'raw_sales_disds',
     'raw_sales_disppal',
+    'raw_sales',
 ]

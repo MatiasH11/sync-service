@@ -5,6 +5,7 @@ from .rubros import raw_rubros
 from .marcas_lineas import raw_marcas_lineas
 from .price_history import raw_price_history
 from .sales import raw_sales_dimds, raw_sales_dimppal, raw_sales_disds, raw_sales_disppal
+from .raw_sales_unified import raw_sales
 
 __all__ = [
     'raw_clients',
@@ -17,4 +18,5 @@ __all__ = [
     'raw_sales_dimppal',
     'raw_sales_disds',
     'raw_sales_disppal',
+    'raw_sales',
 ]

@@ -17,6 +17,9 @@ COPY . .
 # dbt necesita que el proyecto esté instalado
 RUN pip install -e .
 
+# Genera el manifest.json de dbt (requerido por dagster-dbt en producción)
+RUN cd /app/dbt && dbt parse --profiles-dir . --project-dir .
+
 RUN mkdir -p /app/.dagster
 
 EXPOSE 3000
