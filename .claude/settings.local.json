@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "mcp__context7__resolve-library-id",
+      "mcp__context7__query-docs",
+      "WebFetch(domain:dagster.io)",
+      "WebFetch(domain:medium.com)",
+      "WebFetch(domain:docs.dagster.io)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:discuss.dagster.io)",
+      "WebFetch(domain:playbooks.com)",
+      "Bash(mv raw_clients.py raw/clients.py)",
+      "Bash(mv raw_sellers.py raw/sellers.py)",
+      "Bash(mv raw_prices_history.py raw/price_history.py)",
+      "Bash(mv raw_sales.py raw/sales.py)",
+      "Bash(mv _sales_tables.py raw/_sales_query.py)"
+    ]
+  }
+}
