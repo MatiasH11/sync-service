@@ -62,6 +62,12 @@ class SyncDbtTranslator(DagsterDbtTranslator):
                 return _DBT_SOURCE_TO_DAGSTER_KEY[name]
         return super().get_asset_key(dbt_resource_props)
 
+    def get_group_name(self, dbt_resource_props: dict) -> str:
+        fqn = dbt_resource_props.get('fqn', [])
+        if len(fqn) >= 2:
+            return fqn[-2]  # 'staging' | 'intermediate' | 'marts'
+        return 'dbt'
+
 
 @dbt_assets(
     manifest=dbt_project.manifest_path,

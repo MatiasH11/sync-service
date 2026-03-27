@@ -1,0 +1,95 @@
+version: 2
+
+models:
+  - name: int_sales_accounts
+    description: >
+      Ventas con cuenta principal resuelta.
+      Detecta cuentas secundarias (Excel) y normaliza el código de cuenta
+      para que todos los joins downstream usen siempre la cuenta principal.
+    columns:
+      - name: codigo_cuenta_resuelta
+        description: "Cuenta principal a usar en joins. Igual a codigo_cliente si no es secundaria."
+        tests:
+          - not_null
+
+      - name: es_cuenta_secundaria
+        description: "True si el cliente es una cuenta Excel que mapea a otra cuenta principal."
+        tests:
+          - not_null
+
+  - name: int_sales_gm
+    description: >
+      Ventas enriquecidas con datos del cliente (cuenta principal) y vendedor.
+      Detecta ventas GM y extrae el % de descuento del campo barrio.
+      INNER JOIN con clientes filtra ventas de cuentas inexistentes en el maestro.
+    columns:
+      - name: es_venta_gm
+        description: "True si: tipo=RE + PDV en (17,18,19,109) + barrio con formato de descuento."
+        tests:
+          - not_null
+      - name: gm_descuento_pct
+        description: "Porcentaje extraído del barrio. Ej: '(35.90) M-1614' → 35.90. NULL si no es GM."
+      - name: razon_social_cuenta
+        description: "Razón social de la cuenta principal."
+        tests:
+          - not_null
+
+  - name: int_sales_enriched
+    description: >
+      Ventas con dimensiones de artículo, rubro y marca/línea incorporadas.
+      LEFT JOINs intencionales: ventas con artículo sin maestro no se pierden
+      pero tendrán dimensiones en NULL y es_articulo_valido = false.
+    columns:
+      - name: es_articulo_valido
+        description: "False si codigo_super_rubro es -1 o 377 (artículos especiales/excluidos)."
+        tests:
+          - not_null
+      - name: descripcion_articulo_master
+        description: "Descripción desde product-service. Fallback a la descripción del comprobante."
+
+  - name: int_sales_prices
+    description: >
+      Ventas con precio proveedor vigente al momento de la venta (ASOF join).
+      Replica la lógica de PriceHistoryRepository.getPriceAtTime() en TypeScript.
+      NOTA: La lógica usa el primer precio con fecha >= venta (puede ser futuro),
+      replicando el comportamiento de producción aunque sea técnicamente incorrecto.
+    columns:
+      - name: precio_proveedor_vigente
+        description: "Precio proveedor del catálogo vigente al momento de la venta."
+      - name: tiene_precio_historico
+        description: "True si se encontró precio en el historial o al menos el precio actual."
+
+  - name: int_sales_calculated
+    description: >
+      Ventas con precio_final calculado según escenario:
+      GM_DESCONTADO: precio proveedor vigente con descuento aplicado.
+      SECUNDARIA_CERO: precio = 0 para evitar doble conteo.
+      PRECIO_ESTANDAR: precio_venta del comprobante.
+    columns:
+      - name: precio_final
+        description: "Precio final calculado. Columna central para todas las agregaciones."
+        tests:
+          - not_null
+      - name: metodo_precio
+        description: "GM_DESCONTADO | SECUNDARIA_CERO | PRECIO_ESTANDAR"
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['GM_DESCONTADO', 'SECUNDARIA_CERO', 'PRECIO_ESTANDAR']
+
+  - name: int_sales_breakdown
+    description: >
+      Modelo final de la cadena intermediate. Agrega sucursal y breakdowns
+      pre-calculados GM/DS/PPAL. Es la entrada directa de fct_ventas.
+    columns:
+      - name: sucursal
+        description: "BA | MDP | PICO | ROSARIO | UNKNOWN — mapeado desde PDV y depósito."
+        tests:
+          - not_null
+      - name: gm_monto
+        description: "Monto de la venta si es GM, 0 si no."
+      - name: ds_monto
+        description: "Monto si es DS no-GM, 0 si no."
+      - name: ppal_monto
+        description: "Monto si es PPAL no-GM, 0 si no."
+

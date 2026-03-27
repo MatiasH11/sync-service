@@ -1,0 +1,90 @@
+version: 2
+
+models:
+  - name: fct_sales
+    description: >
+      Sales fact table. Single source of truth for api-vendedores and api-quantix.
+      Replaces fct_sales (DuckDB) and RENT_COMERCIAL (MySQL).
+      All business logic pre-applied: GM discounts, account resolution, breakdowns.
+    columns:
+      - name: voucher_type
+        description: "FA, FB, NCA, NCB, NDA, NDB, RE"
+        tests: [not_null]
+      - name: voucher_number
+        description: "Invoice number"
+        tests: [not_null]
+      - name: source
+        description: "MySQL source: DIMDS, DIMPPAL, DISDS, DISPPAL"
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['DIMDS', 'DIMPPAL', 'DISDS', 'DISPPAL']
+      - name: branch
+        description: "BA, MDP, PICO, ROSARIO, UNKNOWN"
+        tests: [not_null]
+      - name: consumption_type
+        description: "DS or PPAL"
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['DS', 'PPAL']
+      - name: invoice_datetime
+        description: "Full timestamp of the invoice"
+        tests: [not_null]
+      - name: year_month
+        description: "Month key in format YYYY-MM. Use for GROUP BY and date filtering."
+        tests: [not_null]
+      - name: client_code
+        description: "Original client code from the invoice"
+        tests: [not_null]
+      - name: account_code
+        description: "Resolved main account code. Use this for all joins and aggregations."
+        tests: [not_null]
+      - name: account_name
+        description: "Name of the main account"
+        tests: [not_null]
+      - name: vendor_code
+        description: "Vendor assigned to the main account"
+      - name: article_code
+        description: "Article code"
+        tests: [not_null]
+      - name: rubro_code
+        description: "Super-rubro code. Codes -1 and 377 are special/excluded articles."
+      - name: quantity
+        description: "Units sold"
+        tests: [not_null]
+      - name: sale_price
+        description: "Total line price as recorded in MySQL (after all MySQL-level discounts)"
+        tests: [not_null]
+      - name: provider_price
+        description: "Cost of goods recorded in the invoice (COSTOVENTA)"
+      - name: provider_price_at_sale
+        description: "Provider catalog price at the moment of the sale (ASOF join with price_history)"
+      - name: final_price
+        description: >
+          Calculated final price:
+          - GM sale: provider_price_at_sale × ((100 - gm_discount_pct) / 100) × quantity
+          - Secondary account: 0 (avoid double counting)
+          - Standard: sale_price
+        tests: [not_null]
+      - name: is_gm_sale
+        description: "True if: voucher_type=RE + point_of_sale IN (17,18,19,109) + barrio has discount format"
+        tests: [not_null]
+      - name: is_secondary_account
+        description: "True if this client is a secondary (Excel) account mapped to a main account"
+        tests: [not_null]
+      - name: is_valid_article
+        description: "False if rubro_code IN (-1, 377)"
+        tests: [not_null]
+      - name: price_method
+        description: "GM_DISCOUNTED | SECONDARY_ZEROED | STANDARD_PRICE"
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['GM_DISCOUNTED', 'SECONDARY_ZEROED', 'STANDARD_PRICE']
+      - name: gm_amount
+        description: "final_price if is_gm_sale, else 0"
+      - name: ds_amount
+        description: "final_price if DS and not GM, else 0"
+      - name: ppal_amount
+        description: "final_price if PPAL and not GM, else 0"
