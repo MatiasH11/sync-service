@@ -9,11 +9,24 @@
 --   - GM discount calculation with historical price lookup
 --   - Pre-calculated breakdowns (GM / DS / PPAL)
 --
+-- Incremental strategy: delete+insert
+--   Dagster passes min_month and max_month vars when running a partition.
+--   On each run, the rows for that month are deleted and re-inserted.
+--   First run (no table yet): builds the complete historical table.
+--   Full rebuild: dbt build --full-refresh --select fct_sales
+--
 -- Common query patterns:
 --   WHERE year_month = '2026-03' AND vendor_code = 'V01'
 --   GROUP BY year_month, account_code, brand_name
 
-{{ config(materialized='table') }}
+{{
+    config(
+        materialized         = 'incremental',
+        incremental_strategy = 'delete+insert',
+        unique_key           = ['source', 'voucher_type', 'voucher_number', 'article_code'],
+        on_schema_change     = 'fail'
+    )
+}}
 
 select
 
@@ -153,5 +166,13 @@ from (
         end                                 as price_method
 
     from {{ ref('int_sales_breakdown') }}
+
+    {% if is_incremental() %}
+    -- Dagster injects min_month and max_month for the current partition.
+    -- On incremental runs, only the rows for that month are deleted and re-inserted.
+    -- This aligns with the hourly_sales_schedule which always loads the last 2 months.
+    where to_char(fecha_comprobante, 'YYYY-MM')
+          between '{{ var("min_month") }}' and '{{ var("max_month") }}'
+    {% endif %}
 
 ) renamed

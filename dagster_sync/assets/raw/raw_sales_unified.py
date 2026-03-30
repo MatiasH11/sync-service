@@ -7,12 +7,15 @@ from .sales import PARTITIONS, raw_sales_dimds, raw_sales_dimppal, raw_sales_dis
     name='raw_sales',
     deps=[raw_sales_dimds, raw_sales_dimppal, raw_sales_disds, raw_sales_disppal],
     partitions_def=PARTITIONS,
+    # eager() es semántico al rol de este asset: es un centinela que debe
+    # activarse en cuanto sus 4 dependencias completan para la misma partición.
+    # No es un schedule externo — es la definición de cuándo el centinela existe.
     automation_condition=AutomationCondition.eager(),
     group_name='raw',
     description=(
-        'Marcador de linaje particionado: raw.raw_sales está completa para el mes '
+        'Centinela de linaje: señaliza que raw.raw_sales está completa para un mes '
         'cuando los 4 loaders (DIMDS, DIMPPAL, DISDS, DISPPAL) terminaron. '
-        'Se materializa automáticamente cuando todos sus upstream completan.'
+        'El sensor raw_sales_dbt_sensor escucha este asset para lanzar dbt.'
     ),
 )
 def raw_sales(context: AssetExecutionContext) -> None:
