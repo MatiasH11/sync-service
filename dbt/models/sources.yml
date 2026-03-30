@@ -25,3 +25,9 @@ sources:
 
       - name: raw_price_history
         description: "Historial de cambios de precio proveedor desde Firebird"
+
+      - name: raw_pp_monthly
+        description: "Descuento PP promedio mensual desde distriap_distri.PROMEDIO_PRONTOPAGO_V2. Un registro por mes."
+
+      - name: raw_pp_provider
+        description: "Descuento PP por marca de proveedor desde DESC_PP_PROV (MySQL AWS). Solo registros ACTIVO = 1."

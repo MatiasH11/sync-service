@@ -242,3 +242,45 @@ models:
         description: "Precio registrado en el cambio específico (precio en raw)"
         tests:
           - not_null
+
+  - name: stg_pp_monthly
+    description: >
+      Descuento PP (pronto pago) promedio mensual. Un valor por mes que aplica
+      a todos los clientes excepto el cliente particular '01129' (Estado), que
+      siempre recibe 0%. Fallback: 22% si no hay registro para el mes.
+      Fuente: distriap_distri.PROMEDIO_PRONTOPAGO_V2 vía raw.raw_pp_monthly.
+    columns:
+      - name: pp_year
+        description: "Año del período (ej: 2026)"
+        tests:
+          - not_null
+      - name: pp_month
+        description: "Mes del período (1–12)"
+        tests:
+          - not_null
+      - name: pp_discount_pct
+        description: "Porcentaje de descuento PP promedio para el mes (ej: 22.0)"
+        tests:
+          - not_null
+
+  - name: stg_pp_provider
+    description: >
+      Descuento PP (pronto pago) por marca de proveedor.
+      Cada proveedor puede tener un % de descuento PP distinto por marca.
+      Se carga solo con registros ACTIVO = 1.
+      Keyed por brand_code (CODIGOMARCA). Marcas ausentes → descuento 0% en int_sales_pp.
+      Fuente: DESC_PP_PROV (MySQL AWS) vía raw.raw_pp_provider.
+    columns:
+      - name: brand_code
+        description: "Código de marca interna (PK). Mismo valor que codigo_marca_int en stg_articulos."
+        tests:
+          - not_null
+          - unique
+      - name: provider_code
+        description: "Código del proveedor dueño del descuento PP"
+      - name: provider_name
+        description: "Razón social del proveedor"
+      - name: brand_description
+        description: "Descripción de la marca"
+      - name: pp_discount_pct
+        description: "Porcentaje de descuento PP que otorga el proveedor para esta marca (ej: 5.0)"

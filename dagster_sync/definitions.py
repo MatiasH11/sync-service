@@ -8,6 +8,8 @@ from dagster_sync.assets import (
     raw_rubros,
     raw_marcas_lineas,
     raw_price_history,
+    raw_pp_monthly,
+    raw_pp_provider,
     raw_sales_dimds,
     raw_sales_dimppal,
     raw_sales_disds,
@@ -57,10 +59,13 @@ sales_job = define_asset_job(
 
 dimensions_job = define_asset_job(
     name='dimensions_sync',
-    selection=[raw_clients, raw_sellers, raw_articulos, raw_rubros, raw_marcas_lineas],
+    selection=[raw_clients, raw_sellers, raw_articulos, raw_rubros, raw_marcas_lineas,
+               raw_pp_monthly, raw_pp_provider],
     description=(
-        '[INGESTION] MySQL / APIs → raw.raw_clients, raw_sellers, raw_articulos, raw_rubros, raw_marcas_lineas\n'
-        'Actualiza las tablas maestras de clientes, vendedores, artículos, rubros y marcas/líneas.\n'
+        '[INGESTION] MySQL / APIs → raw.raw_clients, raw_sellers, raw_articulos, raw_rubros,\n'
+        '             raw_marcas_lineas, raw_pp_monthly, raw_pp_provider\n'
+        'Actualiza todas las tablas maestras: clientes, vendedores, artículos, rubros,\n'
+        'marcas/líneas y tablas de descuentos PP (mensual + por proveedor/marca).\n'
         'Sin particionado — siempre reemplaza el estado actual completo.\n'
         '\n'
         'AUTOMÁTICO: daily_dimensions_schedule lo lanza una vez por día.\n'
@@ -162,6 +167,8 @@ defs = Definitions(
         raw_rubros,
         raw_marcas_lineas,
         raw_price_history,
+        raw_pp_monthly,
+        raw_pp_provider,
         raw_sales_dimds,
         raw_sales_dimppal,
         raw_sales_disds,

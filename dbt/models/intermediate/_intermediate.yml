@@ -79,8 +79,8 @@ models:
 
   - name: int_sales_breakdown
     description: >
-      Modelo final de la cadena intermediate. Agrega sucursal y breakdowns
-      pre-calculados GM/DS/PPAL. Es la entrada directa de fct_ventas.
+      Agrega sucursal y breakdowns pre-calculados GM/DS/PPAL.
+      Último paso antes de int_sales_pp.
     columns:
       - name: sucursal
         description: "BA | MDP | PICO | ROSARIO | UNKNOWN — mapeado desde PDV y depósito."
@@ -92,4 +92,34 @@ models:
         description: "Monto si es DS no-GM, 0 si no."
       - name: ppal_monto
         description: "Monto si es PPAL no-GM, 0 si no."
+
+  - name: int_sales_pp
+    description: >
+      Modelo final de la cadena intermediate. Incorpora los tres campos de Pronto Pago (PP)
+      a cada línea de venta mediante LEFT JOINs con stg_pp_monthly y stg_pp_provider.
+      Es la entrada directa de fct_sales.
+
+      Campos nuevos:
+        pp_descuento_pct   → % PP mensual del cliente (0 para cliente '01129', default 22 si falta).
+        pp_precio          → precio_final × (1 - pp_descuento_pct/100).
+        pp_costo_proveedor → costo_venta × (1 - descuento PP de la marca / 100).
+
+      Equivalencias con RENT_COMERCIAL: DESC_PP_CLI → pp_descuento_pct,
+      TOTAL_PP → pp_precio, COMPRAS_PP → pp_costo_proveedor.
+    columns:
+      - name: pp_descuento_pct
+        description: >
+          % de descuento PP para el cliente en el mes de la venta.
+          0 para el cliente particular '01129' (Estado).
+          Fallback: 22 si no hay registro en PROMEDIO_PRONTOPAGO_V2 para ese mes.
+        tests:
+          - not_null
+      - name: pp_precio
+        description: "precio_final con descuento PP del cliente aplicado. Igual a precio_final si cliente '01129'."
+        tests:
+          - not_null
+      - name: pp_costo_proveedor
+        description: "costo_venta_articulo con descuento PP del proveedor aplicado por marca. 0% si la marca no tiene PP configurado."
+        tests:
+          - not_null
 

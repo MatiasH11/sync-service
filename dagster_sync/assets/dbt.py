@@ -23,6 +23,8 @@ _DBT_SOURCE_TO_DAGSTER_KEY: dict[str, str] = {
     'raw_rubros':        'raw_rubros',
     'raw_marcas_lineas': 'raw_marcas_lineas',
     'raw_price_history': 'raw_price_history',
+    'raw_pp_monthly':    'raw_pp_monthly',
+    'raw_pp_provider':   'raw_pp_provider',
     'raw_sales':         'raw_sales',
 }
 
@@ -58,7 +60,9 @@ class SyncDbtTranslator(DagsterDbtTranslator):
         'stg_articulos '
         'stg_rubros '
         'stg_marcas_lineas '
-        'stg_price_history'
+        'stg_price_history '
+        'stg_pp_monthly '
+        'stg_pp_provider'
     ),
     name='sync_dbt_dimension_assets',
 )
@@ -95,6 +99,7 @@ class DbtRunConfig(Config):
         'int_sales_prices '
         'int_sales_calculated '
         'int_sales_breakdown '
+        'int_sales_pp '
         'fct_sales'
     ),
     partitions_def=DBT_PARTITIONS,

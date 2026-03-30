@@ -73,6 +73,27 @@ models:
       - name: is_secondary_account
         description: "True if this client is a secondary (Excel) account mapped to a main account"
         tests: [not_null]
+      - name: pp_discount_pct
+        description: >
+          Monthly prompt payment (PP) discount % applied to the client.
+          Uniform for all clients in the month except client_particular_code '01129' (Estado) which is always 0.
+          Source: PROMEDIO_PRONTOPAGO_V2. Fallback: 22 if no record exists for the month.
+        tests: [not_null]
+      - name: pp_price
+        description: >
+          Sale price after applying the client PP discount.
+          Calculated: final_price × ((100 - pp_discount_pct) / 100).
+          Equals final_price for client '01129' (0% discount).
+          Equivalent to TOTAL_PP in the legacy RENT_COMERCIAL table.
+        tests: [not_null]
+      - name: pp_provider_cost
+        description: >
+          Provider cost net of prompt payment discount.
+          Calculated: provider_price × ((100 - brand PP discount%) / 100).
+          The brand PP discount comes from DESC_PP_PROV keyed by brand_code.
+          Brands without a PP configuration get 0% discount (pp_provider_cost = provider_price).
+          Equivalent to COMPRAS_PP in the legacy RENT_COMERCIAL table.
+        tests: [not_null]
       - name: is_valid_article
         description: "False if rubro_code IN (-1, 377)"
         tests: [not_null]

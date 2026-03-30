@@ -8,6 +8,7 @@
 --   - Account resolution (secondary → main account)
 --   - GM discount calculation with historical price lookup
 --   - Pre-calculated breakdowns (GM / DS / PPAL)
+--   - Prompt payment (PP) fields: discount %, PP price, PP provider cost
 --
 -- Incremental strategy: delete+insert
 --   Dagster passes min_month and max_month vars when running a partition.
@@ -101,6 +102,13 @@ select
     ppal_amount,
 
     -- -------------------------------------------------------------------------
+    -- PP (Pronto Pago)
+    -- -------------------------------------------------------------------------
+    pp_discount_pct,        -- Monthly client PP discount %. 0 for client '01129'. Default 22 if missing.
+    pp_price,               -- Calculated: final_price × (1 - pp_discount_pct/100)
+    pp_provider_cost,       -- Calculated: provider_price × (1 - brand PP discount/100)
+
+    -- -------------------------------------------------------------------------
     -- Flags
     -- -------------------------------------------------------------------------
     is_valid_article,       -- false if rubro_code IN (-1, 377)
@@ -158,6 +166,10 @@ from (
         ppal_cantidad                       as ppal_quantity,
         ppal_monto                          as ppal_amount,
 
+        pp_descuento_pct                    as pp_discount_pct,
+        pp_precio                           as pp_price,
+        pp_costo_proveedor                  as pp_provider_cost,
+
         es_articulo_valido                  as is_valid_article,
         case metodo_precio
             when 'GM_DESCONTADO'    then 'GM_DISCOUNTED'
@@ -165,7 +177,7 @@ from (
             else 'STANDARD_PRICE'
         end                                 as price_method
 
-    from {{ ref('int_sales_breakdown') }}
+    from {{ ref('int_sales_pp') }}
 
     {% if is_incremental() %}
     -- Dagster injects min_month and max_month for the current partition.

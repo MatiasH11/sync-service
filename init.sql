@@ -109,6 +109,26 @@ CREATE TABLE IF NOT EXISTS raw.raw_marcas_lineas (
     linea             VARCHAR(255)
 );
 
+CREATE TABLE IF NOT EXISTS raw.raw_pp_monthly (
+    -- Descuento PP promedio mensual (fuente: distriap_distri.PROMEDIO_PRONTOPAGO_V2)
+    -- Un registro por mes. Se recarga completo en cada sincronización.
+    pp_year          SMALLINT       NOT NULL,
+    pp_month         SMALLINT       NOT NULL,
+    pp_discount_pct  NUMERIC(6, 2)  NOT NULL,
+    PRIMARY KEY (pp_year, pp_month)
+);
+
+CREATE TABLE IF NOT EXISTS raw.raw_pp_provider (
+    -- Descuento PP por marca de proveedor (fuente: DESC_PP_PROV en MySQL AWS)
+    -- Una fila por marca. Se recarga completo en cada sincronización.
+    -- Solo se cargan registros ACTIVO = 1.
+    brand_code         VARCHAR(20)    NOT NULL PRIMARY KEY,
+    provider_code      VARCHAR(20),
+    provider_name      VARCHAR(200),
+    brand_description  VARCHAR(200),
+    pp_discount_pct    NUMERIC(6, 2)
+);
+
 -- =============================================
 -- INDICES para performance en queries
 -- =============================================
