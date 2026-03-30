@@ -1,4 +1,4 @@
-from dagster import asset, AssetExecutionContext, RetryPolicy
+from dagster import AssetExecutionContext, MaterializeResult, MetadataValue, RetryPolicy, asset
 
 from dagster_sync.resources import DistriRdsDbResource, WarehouseResource
 from dagster_sync.types import RawMarcaLineaRow
@@ -16,7 +16,7 @@ def raw_marcas_lineas(
     context: AssetExecutionContext,
     distri_rds: DistriRdsDbResource,
     warehouse: WarehouseResource,
-) -> None:
+) -> MaterializeResult:
     rows = distri_rds.query("""
         SELECT
             ml.id       AS codigo_marca_int,
@@ -31,5 +31,12 @@ def raw_marcas_lineas(
 
     inserted = warehouse.truncate_and_insert('raw.raw_marcas_lineas', COLUMNS, rows)
 
-    context.add_output_metadata({'total_marcas_lineas': inserted})
     context.log.info(f'Loaded {inserted} marcas_lineas into raw.raw_marcas_lineas')
+
+    return MaterializeResult(
+        metadata={
+            'rows_written':    MetadataValue.int(inserted),
+            'source':          MetadataValue.text('MySQL — MarcasxLineas / Marcas / Lineas'),
+            'warehouse_table': MetadataValue.text('raw.raw_marcas_lineas'),
+        }
+    )

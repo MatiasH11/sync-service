@@ -1,7 +1,7 @@
 import io
 import csv
 
-from dagster import asset, AssetExecutionContext, RetryPolicy
+from dagster import AssetExecutionContext, MaterializeResult, MetadataValue, RetryPolicy, asset
 
 from dagster_sync.resources import ClientServiceResource, WarehouseResource
 from dagster_sync.types import RawClientRow, ClientApiResponse
@@ -53,7 +53,7 @@ def raw_clients(
     context: AssetExecutionContext,
     client_service: ClientServiceResource,
     warehouse: WarehouseResource,
-) -> None:
+) -> MaterializeResult:
     all_clients = client_service.fetch_all_clients()
     context.log.info(f'Fetched {len(all_clients)} clients from client-service')
 
@@ -61,5 +61,12 @@ def raw_clients(
 
     inserted = warehouse.truncate_and_insert('raw.raw_clients', COLUMNS, rows)
 
-    context.add_output_metadata({'total_clientes': inserted})
     context.log.info(f'Loaded {inserted} clients into raw.raw_clients')
+
+    return MaterializeResult(
+        metadata={
+            'rows_written':    MetadataValue.int(inserted),
+            'source':          MetadataValue.text('client-service API'),
+            'warehouse_table': MetadataValue.text('raw.raw_clients'),
+        }
+    )

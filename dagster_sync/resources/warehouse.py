@@ -95,6 +95,18 @@ class WarehouseResource(ConfigurableResource):
         finally:
             conn.close()
 
+    def query_scalar(self, sql: str, params=None):
+        """Execute a query and return the first column of the first row (e.g. COUNT)."""
+        conn = self.get_connection()
+        try:
+            cursor = conn.cursor()
+            cursor.execute(sql, params)
+            row = cursor.fetchone()
+            cursor.close()
+            return row[0] if row else None
+        finally:
+            conn.close()
+
     def delete_source_month_and_insert(
         self,
         table: str,

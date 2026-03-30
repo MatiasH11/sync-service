@@ -1,4 +1,4 @@
-from dagster import asset, AssetExecutionContext, RetryPolicy
+from dagster import AssetExecutionContext, MaterializeResult, MetadataValue, RetryPolicy, asset
 
 from dagster_sync.resources import ProductServiceResource, WarehouseResource
 from dagster_sync.types import RawArticuloRow, ProductApiResponse
@@ -29,7 +29,7 @@ def raw_articulos(
     context: AssetExecutionContext,
     product_service: ProductServiceResource,
     warehouse: WarehouseResource,
-) -> None:
+) -> MaterializeResult:
     all_products = product_service.fetch_all_products()
     context.log.info(f'Fetched {len(all_products)} products from product-service')
 
@@ -37,5 +37,12 @@ def raw_articulos(
 
     inserted = warehouse.truncate_and_insert('raw.raw_articulos', COLUMNS, rows)
 
-    context.add_output_metadata({'total_articulos': inserted})
     context.log.info(f'Loaded {inserted} articulos into raw.raw_articulos')
+
+    return MaterializeResult(
+        metadata={
+            'rows_written':    MetadataValue.int(inserted),
+            'source':          MetadataValue.text('product-service API'),
+            'warehouse_table': MetadataValue.text('raw.raw_articulos'),
+        }
+    )

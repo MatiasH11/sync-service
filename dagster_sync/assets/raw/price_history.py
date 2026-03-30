@@ -1,4 +1,4 @@
-from dagster import asset, AssetExecutionContext, RetryPolicy, MonthlyPartitionsDefinition
+from dagster import AssetExecutionContext, MaterializeResult, MetadataValue, MonthlyPartitionsDefinition, RetryPolicy, asset
 
 from dagster_sync.resources import PricesDbResource, WarehouseResource
 
@@ -18,7 +18,7 @@ def raw_price_history(
     context: AssetExecutionContext,
     prices_db: PricesDbResource,
     warehouse: WarehouseResource,
-) -> None:
+) -> MaterializeResult:
     start, end = context.partition_time_window
 
     context.log.info(
@@ -65,8 +65,13 @@ def raw_price_history(
         rows=normalized,
     )
 
-    context.add_output_metadata({
-        'partition': context.partition_key,
-        'rows': inserted,
-    })
-    context.log.info(f'Loaded {inserted} price records for {context.partition_key}')
+    context.log.info(f'Loaded {inserted} price records for {context.partition_key[:7]}')
+
+    return MaterializeResult(
+        metadata={
+            'partition_month':  MetadataValue.text(context.partition_key[:7]),
+            'rows_written':     MetadataValue.int(inserted),
+            'source':           MetadataValue.text('Firebird — CAMBIOSDEPRECIOPROVEEDOR'),
+            'warehouse_table':  MetadataValue.text('raw.raw_price_history'),
+        }
+    )

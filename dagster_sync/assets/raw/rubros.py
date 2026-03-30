@@ -1,4 +1,4 @@
-from dagster import asset, AssetExecutionContext, RetryPolicy
+from dagster import AssetExecutionContext, MaterializeResult, MetadataValue, RetryPolicy, asset
 
 from dagster_sync.resources import DistriRdsDbResource, WarehouseResource
 from dagster_sync.types import RawRubroRow
@@ -16,7 +16,7 @@ def raw_rubros(
     context: AssetExecutionContext,
     distri_rds: DistriRdsDbResource,
     warehouse: WarehouseResource,
-) -> None:
+) -> MaterializeResult:
     rows = distri_rds.query("""
         SELECT
             r.CODIGORUBRO                               AS codigo_rubro,
@@ -30,5 +30,12 @@ def raw_rubros(
 
     inserted = warehouse.truncate_and_insert('raw.raw_rubros', COLUMNS, rows)
 
-    context.add_output_metadata({'total_rubros': inserted})
     context.log.info(f'Loaded {inserted} rubros into raw.raw_rubros')
+
+    return MaterializeResult(
+        metadata={
+            'rows_written':    MetadataValue.int(inserted),
+            'source':          MetadataValue.text('MySQL — RUBROS / UNIDADESXRUBRO'),
+            'warehouse_table': MetadataValue.text('raw.raw_rubros'),
+        }
+    )

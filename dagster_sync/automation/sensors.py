@@ -51,6 +51,11 @@ def make_raw_sales_dbt_sensor(dbt_job):
         yield RunRequest(
             run_key=f'dbt-{partition_key}-{context.cursor}',
             partition_key=partition_key,
+            tags={
+                'trigger':         'sensor',
+                'triggered_by':    'raw_sales',
+                'partition_month': partition_key[:7],
+            },
         )
 
     return raw_sales_dbt_sensor

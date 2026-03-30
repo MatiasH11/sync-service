@@ -24,10 +24,16 @@ def make_hourly_sales_schedule(sales_job):
         default_status=DefaultScheduleStatus.RUNNING,
     )
     def hourly_sales_schedule(context):
+        hour = context.scheduled_execution_time.hour
         for partition_key in _last_two_month_keys(context.scheduled_execution_time):
             yield RunRequest(
                 partition_key=partition_key,
-                run_key=f'sales-{partition_key}-h{context.scheduled_execution_time.hour}',
+                run_key=f'sales-{partition_key}-h{hour}',
+                tags={
+                    'trigger':         'scheduled',
+                    'schedule':        'hourly_sales',
+                    'partition_month': partition_key[:7],
+                },
             )
 
     return hourly_sales_schedule
@@ -47,7 +53,13 @@ def make_daily_dimensions_schedule(dimensions_job):
         default_status=DefaultScheduleStatus.RUNNING,
     )
     def daily_dimensions_schedule(context):
-        yield RunRequest(run_key=context.scheduled_execution_time.strftime('%Y-%m-%d'))
+        yield RunRequest(
+            run_key=context.scheduled_execution_time.strftime('%Y-%m-%d'),
+            tags={
+                'trigger':  'scheduled',
+                'schedule': 'daily_dimensions',
+            },
+        )
 
     return daily_dimensions_schedule
 
@@ -65,6 +77,12 @@ def make_price_history_schedule(price_history_job):
         default_status=DefaultScheduleStatus.RUNNING,
     )
     def price_history_schedule(context):
-        yield RunRequest(run_key=context.scheduled_execution_time.isoformat())
+        yield RunRequest(
+            run_key=context.scheduled_execution_time.isoformat(),
+            tags={
+                'trigger':  'scheduled',
+                'schedule': 'price_history',
+            },
+        )
 
     return price_history_schedule

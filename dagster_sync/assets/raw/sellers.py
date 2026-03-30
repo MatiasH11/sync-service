@@ -1,4 +1,4 @@
-from dagster import asset, AssetExecutionContext, RetryPolicy
+from dagster import AssetExecutionContext, MaterializeResult, MetadataValue, RetryPolicy, asset
 
 from dagster_sync.resources import DistriRdsDbResource, WarehouseResource
 
@@ -15,7 +15,7 @@ def raw_sellers(
     context: AssetExecutionContext,
     distri_rds: DistriRdsDbResource,
     warehouse: WarehouseResource,
-) -> None:
+) -> MaterializeResult:
     rows = distri_rds.query("""
         SELECT codigovendedor, razonsocialvend AS nombre
         FROM Vendedores
@@ -24,5 +24,12 @@ def raw_sellers(
 
     inserted = warehouse.truncate_and_insert('raw.raw_sellers', COLUMNS, rows)
 
-    context.add_output_metadata({'total_vendedores': inserted})
     context.log.info(f'Loaded {inserted} sellers')
+
+    return MaterializeResult(
+        metadata={
+            'rows_written':    MetadataValue.int(inserted),
+            'source':          MetadataValue.text('MySQL — Vendedores'),
+            'warehouse_table': MetadataValue.text('raw.raw_sellers'),
+        }
+    )

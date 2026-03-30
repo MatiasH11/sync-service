@@ -1,4 +1,4 @@
-from dagster import asset, AssetExecutionContext, RetryPolicy, MonthlyPartitionsDefinition
+from dagster import AssetExecutionContext, MaterializeResult, MetadataValue, MonthlyPartitionsDefinition, RetryPolicy, asset
 
 from dagster_sync.resources import DistriRdsDbResource, WarehouseResource
 from dagster_sync.types import RawSaleRow
@@ -24,10 +24,11 @@ def _make_raw_sales_asset(config: SalesTableConfig):
         context: AssetExecutionContext,
         distri_rds: DistriRdsDbResource,
         warehouse: WarehouseResource,
-    ) -> None:
+    ) -> MaterializeResult:
         start, end = context.partition_time_window
+        month = context.partition_key[:7]
 
-        context.log.info(f'[{db}] Extracting {context.partition_key} ({start} → {end})')
+        context.log.info(f'[{db}] Extracting {month} ({start} → {end})')
 
         query = build_sales_query(config['cabeza'], config['cuerpo'], config['tipo_consumo'], db)
         rows: list[RawSaleRow] = distri_rds.query(query, (start, end))
@@ -43,10 +44,19 @@ def _make_raw_sales_asset(config: SalesTableConfig):
         )
 
         if inserted == 0:
-            context.log.warning(f'[{db}] No rows returned from source for {context.partition_key}')
+            context.log.warning(f'[{db}] No rows returned from source for {month}')
 
-        context.add_output_metadata({'partition': context.partition_key, 'rows': inserted})
-        context.log.info(f'[{db}] Loaded {inserted} rows for {context.partition_key}')
+        context.log.info(f'[{db}] Loaded {inserted} rows for {month}')
+
+        return MaterializeResult(
+            metadata={
+                'partition_month':  MetadataValue.text(month),
+                'rows_written':     MetadataValue.int(inserted),
+                'source_db':        MetadataValue.text(db),
+                'source_tables':    MetadataValue.text(f'{config["cabeza"]} / {config["cuerpo"]}'),
+                'warehouse_table':  MetadataValue.text('raw.raw_sales'),
+            }
+        )
 
     return _asset
 
