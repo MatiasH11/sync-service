@@ -14,7 +14,8 @@
       "Bash(mv raw_sellers.py raw/sellers.py)",
       "Bash(mv raw_prices_history.py raw/price_history.py)",
       "Bash(mv raw_sales.py raw/sales.py)",
-      "Bash(mv _sales_tables.py raw/_sales_query.py)"
+      "Bash(mv _sales_tables.py raw/_sales_query.py)",
+      "Bash(rtk git:*)"
     ]
   }
 }

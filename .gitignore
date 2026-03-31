@@ -6,3 +6,6 @@ dbt/dbt_packages/
 __pycache__/
 *.pyc
 *.egg-info/
+.specify/
+.cursor/
+specs/

@@ -12,10 +12,11 @@
 
 {{ config(materialized='view') }}
 
-select
+select distinct on (brand_code)
     brand_code,
     provider_code,
     provider_name,
     brand_description,
     pp_discount_pct
 from {{ source('raw', 'raw_pp_provider') }}
+order by brand_code, pp_discount_pct desc

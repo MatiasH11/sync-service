@@ -120,9 +120,9 @@ CREATE TABLE IF NOT EXISTS raw.raw_pp_monthly (
 
 CREATE TABLE IF NOT EXISTS raw.raw_pp_provider (
     -- Descuento PP por marca de proveedor (fuente: DESC_PP_PROV en MySQL AWS)
-    -- Una fila por marca. Se recarga completo en cada sincronización.
-    -- Solo se cargan registros ACTIVO = 1.
-    brand_code         VARCHAR(20)    NOT NULL PRIMARY KEY,
+    -- Se recarga completo en cada sincronización (TRUNCATE + COPY).
+    -- Solo se cargan registros ACTIVO = 1. Deduplicación en dbt staging.
+    brand_code         VARCHAR(20),
     provider_code      VARCHAR(20),
     provider_name      VARCHAR(200),
     brand_description  VARCHAR(200),
