@@ -25,7 +25,14 @@
         materialized         = 'incremental',
         incremental_strategy = 'delete+insert',
         unique_key           = ['source', 'voucher_type', 'voucher_number', 'article_code'],
-        on_schema_change     = 'fail'
+        on_schema_change     = 'fail',
+        post_hook            = [
+            "CREATE INDEX IF NOT EXISTS idx_fct_sales_vendor_yearmonth  ON {{ this }} (vendor_code, year_month)",
+            "CREATE INDEX IF NOT EXISTS idx_fct_sales_account_yearmonth ON {{ this }} (account_code, year_month)",
+            "CREATE INDEX IF NOT EXISTS idx_fct_sales_yearmonth         ON {{ this }} (year_month)",
+            "CREATE INDEX IF NOT EXISTS idx_fct_sales_sr_cte            ON {{ this }} (vendor_code, account_code, rubro_code, year_month)",
+            "CREATE INDEX IF NOT EXISTS idx_fct_sales_invoice_datetime  ON {{ this }} (invoice_datetime)"
+        ]
     )
 }}
 

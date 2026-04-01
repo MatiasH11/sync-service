@@ -62,7 +62,9 @@ class SyncDbtTranslator(DagsterDbtTranslator):
         'stg_marcas_lineas '
         'stg_price_history '
         'stg_pp_monthly '
-        'stg_pp_provider'
+        'stg_pp_provider '
+        'int_clients_enriched '
+        'fct_clients'
     ),
     name='sync_dbt_dimension_assets',
 )

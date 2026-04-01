@@ -30,10 +30,11 @@ class PricesDbResource(ConfigurableResource):
         conn = self.get_connection()
         try:
             cursor = conn.cursor()
-            cursor.execute(sql, params or [])
-            columns = [desc[0] for desc in cursor.description]
-            rows = [dict(zip(columns, row)) for row in cursor.fetchall()]
-            cursor.close()
-            return rows
+            try:
+                cursor.execute(sql, params or [])
+                columns = [desc[0] for desc in cursor.description]
+                return [dict(zip(columns, row)) for row in cursor.fetchall()]
+            finally:
+                cursor.close()
         finally:
             conn.close()

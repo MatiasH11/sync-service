@@ -123,3 +123,34 @@ models:
         tests:
           - not_null
 
+  - name: int_clients_enriched
+    description: >
+      Clientes de stg_clients enriquecidos con nombre de vendedor (LEFT JOIN stg_sellers)
+      y campos extraídos del JSONB: descuentos bonificacion/descuento_general y flag es_suscriptor.
+      Entrada directa de fct_clients. Todos los demás campos son passthrough de stg_clients.
+    columns:
+      - name: codigo_cliente
+        description: "Código único del cliente (PK)"
+        tests:
+          - not_null
+          - unique
+
+      - name: nombre_vendedor
+        description: "Nombre del vendedor asignado. NULL si el cliente no tiene vendedor asignado."
+
+      - name: bonificacion
+        description: "Descuento de bonificación extraído de discounts->>'byBonus'. Default 0 si ausente."
+        tests:
+          - not_null
+
+      - name: descuento_general
+        description: "Descuento general extraído de discounts->>'byGeneral'. Default 0 si ausente."
+        tests:
+          - not_null
+
+      - name: es_suscriptor
+        description: >
+          True si campos_dinamicos contiene un elemento con codigo=59 y valor='2'.
+          No es un campo directo de client-service — se extrae del array JSONB.
+        tests:
+          - not_null

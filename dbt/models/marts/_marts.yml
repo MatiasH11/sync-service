@@ -109,3 +109,113 @@ models:
         description: "final_price if DS and not GM, else 0"
       - name: ppal_amount
         description: "final_price if PPAL and not GM, else 0"
+
+  - name: fct_clients
+    description: >
+      Client master table. Single source of truth for api-vendedores and api-quantix.
+      Replaces api-vendedores direct MySQL queries and api-quantix Redis bulk cache.
+      All lookups pre-applied: seller name, account mapping, business flags, discounts.
+      Lineage: raw_clients + raw_sellers → stg_clients + stg_sellers → int_clients_enriched → fct_clients.
+      Rebuilt in full on every dimensions pipeline run (non-partitioned).
+    columns:
+      - name: client_code
+        description: "Unique client code (PK). One row per client."
+        tests:
+          - not_null
+          - unique
+
+      - name: particular_code
+        description: "Particular/external client code (codigoparticular). Primary lookup key in api-quantix."
+
+      - name: business_name
+        description: "Razón social of the client."
+
+      - name: trade_name
+        description: "Nombre de fantasía / trade name."
+
+      - name: vendor_code
+        description: "Assigned seller code. NULL if no seller assigned."
+
+      - name: vendor_name
+        description: "Resolved seller name from stg_sellers. NULL if no seller assigned."
+
+      - name: zone_code
+        description: "Commercial zone code."
+
+      - name: neighborhood
+        description: "Client neighborhood (barrio)."
+
+      - name: city
+        description: "Client city (localidad)."
+
+      - name: address
+        description: "Client street address (domicilio)."
+
+      - name: phone
+        description: "Client phone number."
+
+      - name: latitude
+        description: "Geolocation latitude. NULL for most clients initially."
+
+      - name: longitude
+        description: "Geolocation longitude. NULL for most clients initially."
+
+      - name: is_secondary_account
+        description: "True if this is a secondary (Excel) account linked to a primary account."
+        tests:
+          - not_null
+
+      - name: primary_account_code
+        description: "client_code of the primary account. NULL if this is already a primary account."
+
+      - name: primary_account_particular
+        description: "particular_code of the primary account. Used by api-quantix secondary-to-primary mapping."
+
+      - name: is_active
+        description: "Always TRUE. All clients returned by client-service are considered active."
+        tests:
+          - not_null
+
+      - name: is_gm
+        description: "True if client operates under Gran Minorista pricing (pre-computed by client-service)."
+        tests:
+          - not_null
+
+      - name: is_ag
+        description: "True if client is Agente segment (pre-computed by client-service)."
+        tests:
+          - not_null
+
+      - name: is_agro
+        description: "True if client belongs to the agro channel (pre-computed by client-service)."
+        tests:
+          - not_null
+
+      - name: is_subscriber
+        description: >
+          True if client has dynamic field codigo=59 with valor='2' in campos_dinamicos.
+          Extracted from JSONB — NOT a direct client-service field.
+          Used by api-vendedores getPlanClients query.
+        tests:
+          - not_null
+
+      - name: is_plan_gomeria
+        description: "True if client is enrolled in the gomería plan (pre-computed by client-service)."
+        tests:
+          - not_null
+
+      - name: bonus_discount
+        description: "Bonus discount percentage from discounts->>'byBonus'. Default 0."
+        tests:
+          - not_null
+
+      - name: general_discount
+        description: "General discount percentage from discounts->>'byGeneral'. Default 0."
+        tests:
+          - not_null
+
+      - name: cash_on_delivery
+        description: "Contrareembolso flag (logistics). Cast from integer to boolean."
+
+      - name: cash_on_deposit
+        description: "Contradeposito flag (logistics). Cast from integer to boolean."
