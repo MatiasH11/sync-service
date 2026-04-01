@@ -13,8 +13,9 @@
 --     (la cuenta principal ya contabiliza esta venta, se evita doble conteo)
 --
 --   Escenario 3 — Venta estándar:
---     precio_final = precio_venta
---     (se usa el precio total del comprobante tal como viene de MySQL)
+--     precio_final = precio_total_articulo × ((100 - abs(descuento_comprobante)) / 100)
+--     Header-level discount (DESCUENTOPORCENTAJE) applied to the line total.
+--     Replicates DuckDB pipeline: PRECIOTOTAL * (100 - ABS(DESCUENTOPORCENTAJE)) / 100
 
 {{ config(materialized='view') }}
 
@@ -39,8 +40,8 @@ select
         when es_cuenta_secundaria
         then 0
 
-        -- Escenario 3: venta estándar
-        else precio_total_articulo
+        -- Escenario 3: venta estándar con descuento de cabecera aplicado
+        else precio_total_articulo * ((100 - abs(coalesce(descuento_comprobante, 0))) / 100)
 
     end as precio_final,
 
