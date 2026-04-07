@@ -74,7 +74,8 @@ CREATE TABLE IF NOT EXISTS raw.raw_articulos (
     descripcion        TEXT,
     codigo_rubro       VARCHAR(20),
     codigo_marca       VARCHAR(20),
-    descripcion_marca  TEXT
+    descripcion_marca  TEXT,
+    is_valid_for_units BOOLEAN
 );
 
 CREATE TABLE IF NOT EXISTS raw.raw_excel_clients (

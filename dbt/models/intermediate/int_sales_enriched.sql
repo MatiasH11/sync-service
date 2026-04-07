@@ -72,13 +72,23 @@ enriquecido as (
         m.linea_id,
         m.linea,
 
-        -- Artículo válido: super-rubros -1 y 377 son artículos especiales/excluidos
+        -- Validez general (montos): excluir rubros claramente no-comerciales
         case
             when r.codigo_super_rubro is null
               or r.codigo_super_rubro::int in (-1, 377)
             then false
             else true
-        end as es_articulo_valido
+        end as es_articulo_valido,
+
+        -- Validez para unidades: además de lo anterior, excluir rubros sin
+        -- registro en UNIDADESXRUBRO (réplica de IFNULL(u.CODIGOSUPERRUBRO, -1))
+        case
+            when r.codigo_super_rubro is null
+              or r.codigo_super_rubro::int in (-1, 377)
+              or r.descripcion_super_rubro = 'SIN SUPERRUBRO'
+            then false
+            else true
+        end as es_valido_para_unidades
 
     from ventas v
     left join articulos a

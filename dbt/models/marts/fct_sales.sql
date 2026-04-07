@@ -118,7 +118,8 @@ select
     -- -------------------------------------------------------------------------
     is_gm_sale,
     is_secondary_account,
-    is_valid_article
+    is_valid_article,
+    is_valid_for_units
 
 from (
 
@@ -184,7 +185,8 @@ from (
 
         es_venta_gm                         as is_gm_sale,
         es_cuenta_secundaria                as is_secondary_account,
-        es_articulo_valido                  as is_valid_article
+        es_articulo_valido                  as is_valid_article,
+        es_valido_para_unidades             as is_valid_for_units
 
     from {{ ref('int_sales_pp') }}
 
