@@ -7,7 +7,7 @@ models:
       Replaces fct_sales (DuckDB) and RENT_COMERCIAL (MySQL).
       Design: comprobante is truth, enrichments are lookups, only PP is processed,
       flags for complex detection (GM, secondary), no pre-aggregations.
-      Lineage: stg_sales → int_sales_accounts → int_sales_gm → int_sales_enriched → int_sales_pp → fct_sales.
+      Lineage: stg_sales → int_sales_accounts → int_sales_gm → int_sales_gm_price → int_sales_enriched → int_sales_pp → fct_sales.
     columns:
 
       # -----------------------------------------------------------------------
@@ -158,6 +158,20 @@ models:
           Calculated. cost_total × ((100 - pp_provider_discount_pct) / 100).
           Equivalent to COMPRAS_PP in RENT_COMERCIAL.
         tests: [not_null]
+
+      # -----------------------------------------------------------------------
+      # GM (Gran Minorista)
+      # -----------------------------------------------------------------------
+      - name: gm_discount_pct
+        description: >
+          Enriched. GM discount % extracted from client neighborhood field.
+          E.g. "(35.90) M-1614" → 35.90. NULL if not a GM sale.
+          Used with gm_provider_price to recalculate GM amounts.
+      - name: gm_provider_price
+        description: >
+          Calculated. Provider list price at the time of the sale (ASOF join on CAMBIOSDEPRECIOPROVEEDOR).
+          For GM sales, the final amount is: gm_provider_price × (1 - gm_discount_pct/100) × article_quantity.
+          NULL if the article has no price history.
 
       # -----------------------------------------------------------------------
       # Flags

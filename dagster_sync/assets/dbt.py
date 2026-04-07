@@ -97,6 +97,7 @@ class DbtRunConfig(Config):
         'stg_sales '
         'int_sales_accounts '
         'int_sales_gm '
+        'int_sales_gm_price '
         'int_sales_enriched '
         'int_sales_pp '
         'fct_sales'

@@ -8,13 +8,26 @@
 --   es una cuenta secundaria (cuenta Excel). Se usa la cuenta principal
 --   para joins y agregaciones para evitar doble conteo.
 --
+-- Clientes excluidos:
+--   Réplica de ClientRepository.EXCLUDED_CLIENTS en api-vendedores (feature/add-brands).
+--   Estos clientes son cuentas corporativas internas cuyas facturas (comisiones,
+--   logística GM, etc.) no deben contabilizarse como ventas de analytics.
+--
 -- Fuente: client-service (campo cuentaPrincipal en la API)
 
 {{ config(materialized='view') }}
 
+{% set excluded_clients = ['00403'] %}
+
 with ventas as (
 
-    select * from {{ ref('stg_sales') }}
+    select *
+    from {{ ref('stg_sales') }}
+    where codigo_cliente not in (
+        {%- for cli in excluded_clients -%}
+            '{{ cli }}'{% if not loop.last %}, {% endif %}
+        {%- endfor -%}
+    )
 
 ),
 

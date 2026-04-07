@@ -16,7 +16,7 @@
 --   Enriched     — joined from current master tables, may change if masters change
 --   Calculated   — business logic applied by our pipeline
 --
--- Lineage: stg_sales → int_sales_accounts → int_sales_gm → int_sales_enriched → int_sales_pp → fct_sales
+-- Lineage: stg_sales → int_sales_accounts → int_sales_gm → int_sales_gm_price → int_sales_enriched → int_sales_pp → fct_sales
 --
 -- Incremental strategy: delete+insert
 --   Dagster passes min_month and max_month vars when running a partition.
@@ -114,6 +114,12 @@ select
     pp_cost_total,
 
     -- -------------------------------------------------------------------------
+    -- GM (Gran Minorista) — precio recalculado para ventas GM
+    -- -------------------------------------------------------------------------
+    gm_discount_pct,
+    gm_provider_price,
+
+    -- -------------------------------------------------------------------------
     -- Flags
     -- -------------------------------------------------------------------------
     is_gm_sale,
@@ -182,6 +188,9 @@ from (
         pp_precio                           as pp_sale_total,
         pp_descuento_proveedor_pct          as pp_provider_discount_pct,
         pp_costo_proveedor                  as pp_cost_total,
+
+        gm_descuento_pct                    as gm_discount_pct,
+        gm_precio_proveedor                 as gm_provider_price,
 
         es_venta_gm                         as is_gm_sale,
         es_cuenta_secundaria                as is_secondary_account,

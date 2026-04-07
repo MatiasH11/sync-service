@@ -12,7 +12,7 @@
 
 with ventas as (
 
-    select * from {{ ref('int_sales_gm') }}
+    select * from {{ ref('int_sales_gm_price') }}
 
 ),
 

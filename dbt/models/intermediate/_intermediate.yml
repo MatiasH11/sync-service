@@ -6,6 +6,8 @@ models:
       Ventas con cuenta principal resuelta.
       Detecta cuentas secundarias (Excel) y normaliza el código de cuenta
       para que todos los joins downstream usen siempre la cuenta principal.
+      Excluye clientes internos/corporativos (EXCLUDED_CLIENTS) cuyos comprobantes
+      de comisión y logística no deben contabilizarse como ventas.
     columns:
       - name: codigo_cuenta_resuelta
         description: "Cuenta principal a usar en joins. Igual a codigo_cliente si no es secundaria."
@@ -33,6 +35,19 @@ models:
         description: "Razón social de la cuenta principal."
         tests:
           - not_null
+
+  - name: int_sales_gm_price
+    description: >
+      Ventas con precio de proveedor vigente al momento de la venta.
+      Replica la lógica de PriceHistoryRepository.getPriceAtTime de producción.
+      Transforma el log de CAMBIOSDEPRECIOPROVEEDOR en rangos de vigencia con
+      LAG() y luego hace un range JOIN (hash/merge) — solo para ventas GM.
+    columns:
+      - name: gm_precio_proveedor
+        description: >
+          Precio unitario de lista del proveedor vigente a la fecha de la venta.
+          Se usa como base para calcular el monto GM: gm_precio_proveedor × (1 - gm_descuento_pct/100) × unidades.
+          NULL si no es venta GM o si el artículo no tiene historial en CAMBIOSDEPRECIOPROVEEDOR.
 
   - name: int_sales_enriched
     description: >
