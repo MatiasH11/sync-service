@@ -10,84 +10,92 @@ class FctSaleRow(TypedDict):
       - fct_sales (DuckDB) consumed by api-vendedores
       - RENT_COMERCIAL (MySQL) consumed by api-quantix
 
-    All business logic is pre-applied:
-      - Account resolution: secondary accounts map to their main account.
-      - GM discount: calculated using provider_price_at_sale (ASOF join).
-      - Pre-computed breakdowns: gm / ds / ppal amounts are mutually exclusive.
+    Design principles:
+      1. Comprobante is truth — what Flexxus recorded, untransformed
+      2. Enrichments are lookups — dimensions from masters to avoid consumer joins
+      3. Only process what the consumer can't — PP requires monthly external tables
+      4. Flags for complex detection — GM and secondary require multi-table logic
+      5. No pre-aggregations — breakdowns belong in the reporting layer
+
+    Lineage: stg_sales → int_sales_accounts → int_sales_gm
+             → int_sales_enriched → int_sales_pp → fct_sales
     """
 
     # -------------------------------------------------------------------------
     # Comprobante
     # -------------------------------------------------------------------------
+    source:             str     # DIMDS | DIMPPAL | DISDS | DISPPAL
     voucher_type:       str     # FA, FB, NCA, NCB, NDA, NDB, RE
     voucher_number:     int
-    source:             str     # DIMDS | DIMPPAL | DISDS | DISPPAL
+    voucher_line:       int     # NROLINEA — line number within the invoice body
     point_of_sale:      int
-    deposit_code:       str     # Article-level deposit code
-    branch:             str     # BA | MDP | PICO | ROSARIO | UNKNOWN
-    consumption_type:   str     # DS | PPAL
+    deposit_code:       str     # CODIGODEPOSITO
 
     # -------------------------------------------------------------------------
     # Temporal
     # -------------------------------------------------------------------------
     invoice_datetime:   datetime
-    year_month:         str     # YYYY-MM — use for GROUP BY and range filters
+    year_month:         str     # Calculated: YYYY-MM
 
     # -------------------------------------------------------------------------
-    # Client (always resolved to main account)
+    # Classification (calculated)
     # -------------------------------------------------------------------------
-    client_code:            str             # Original code from the invoice
-    account_code:           str             # Resolved main account — use for all joins
-    account_name:           str
-    client_particular_code: Optional[str]   # Particular code from client-service
-    vendor_code:            Optional[str]
-    vendor_name:            Optional[str]
-    zone_code:              Optional[str]
-    is_secondary_account:   bool            # True if client was a secondary (Excel) account
+    branch:             str     # BA | MDP | PICO | ROSARIO | UNKNOWN
+    consumption_type:   str     # DS | PPAL
+
+    # -------------------------------------------------------------------------
+    # Client
+    # -------------------------------------------------------------------------
+    client_code:            str             # Comprobante: original code from the invoice
+    account_code:           str             # Enriched: resolved main account — use for all joins
+    account_name:           str             # Enriched
+    client_particular_code: Optional[str]   # Enriched: key for api-quantix
+    vendor_code:            Optional[str]   # Enriched
+    vendor_name:            Optional[str]   # Enriched
+    zone_code:              Optional[str]   # Enriched
 
     # -------------------------------------------------------------------------
     # Article
     # -------------------------------------------------------------------------
-    article_code:           str
-    article_particular_code: Optional[str]
-    article_description:    Optional[str]
-    rubro_code:             Optional[str]   # Super-rubro. -1 or 377 = invalid
-    rubro_description:      Optional[str]
-    min_units_rubro:        int             # Minimum units for super-rubro; 0 if unknown
-    brand_code:             Optional[int]   # Integer code from RDS
-    brand_id:               Optional[str]   # UUID from product-service
-    brand_name:             Optional[str]
-    line_id:                Optional[str]   # UUID from product-service
-    line_name:              Optional[str]
+    article_code:           str             # Comprobante
+    article_particular_code: Optional[str]  # Enriched: coalesce(master, invoice)
+    article_description:    Optional[str]   # Enriched: coalesce(master, invoice)
+    rubro_code:             Optional[str]   # Enriched: -1 or 377 → is_valid_article = false
+    rubro_description:      Optional[str]   # Enriched
+    rubro_min_units:        int             # Enriched: SR achievement threshold; 0 if unknown
+    brand_code:             Optional[int]   # Enriched: integer code from RDS
+    brand_id:               Optional[str]   # Enriched: UUID from product-service
+    brand_name:             Optional[str]   # Enriched
+    product_line_id:        Optional[str]   # Enriched: UUID from product-service
+    product_line_name:      Optional[str]   # Enriched
+
+    # -------------------------------------------------------------------------
+    # Provider
+    # -------------------------------------------------------------------------
+    provider_code:          Optional[str]   # Enriched: from DESC_PP_PROV
+    provider_name:          Optional[str]   # Enriched: from DESC_PP_PROV
 
     # -------------------------------------------------------------------------
     # Metrics
     # -------------------------------------------------------------------------
-    quantity:               float
-    sale_price:             float   # Total line price as recorded in MySQL
-    provider_price:         float   # Cost of goods (COSTOVENTA from comprobante)
-    provider_price_at_sale: float   # Provider catalog price at sale datetime (ASOF join)
-    final_price:            float   # GM discounted / 0 if secondary / sale_price
+    article_unit_price:     float           # PRECIOUNITARIO
+    article_quantity:       int             # CANTIDAD
+    line_discount_pct:      float           # DESCUENTO — line-level discount %
+    header_bonification_pct: float          # DESCUENTOPORCENTAJE — voucher bonification %
+    line_total:             float           # PRECIOTOTAL — before header bonification
+    sale_total:             float           # line_total × (1 - header_bonification_pct/100) — net sale
+    cost_total:             float           # COSTOVENTA
 
     # -------------------------------------------------------------------------
-    # GM (Gran Minorista)
+    # PP (Pronto Pago) — processed totals
     # -------------------------------------------------------------------------
-    is_gm_sale:             bool
-    gm_discount_pct:        Optional[float]     # Extracted from barrio field via regex
-    gm_discount_amount:     float               # provider_price_at_sale × discount × qty
-
-    # -------------------------------------------------------------------------
-    # Pre-calculated breakdowns (mutually exclusive; sum to final_price)
-    # -------------------------------------------------------------------------
-    gm_quantity:            float
-    gm_amount:              float
-    ds_quantity:            float
-    ds_amount:              float
-    ppal_quantity:          float
-    ppal_amount:            float
+    pp_discount_pct:        float   # Monthly PP %. Client '01129' = 0%. Fallback 22%.
+    pp_sale_total:          float   # sale_total × (1 - header_bonification_pct/100) × (1 - pp_discount_pct/100). Equiv. TOTAL_PP.
+    pp_cost_total:          float   # cost_total × (1 - article PP%/100). Equiv. COMPRAS_PP.
 
     # -------------------------------------------------------------------------
     # Flags
     # -------------------------------------------------------------------------
+    is_gm_sale:         bool    # RE + PDV GM + barrio regex match
+    is_secondary_account: bool  # Exclude from aggregations to avoid double counting
     is_valid_article:   bool    # False if rubro_code IN (-1, 377)
-    price_method:       str     # GM_DISCOUNTED | SECONDARY_ZEROED | STANDARD_PRICE

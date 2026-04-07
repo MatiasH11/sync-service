@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS raw.raw_sales (
     razon_social_cliente      TEXT,
     descuento_comprobante     DOUBLE PRECISION,
     -- Artículo (de CUERPO)
+    nro_linea                 INTEGER,
     codigo_articulo           VARCHAR(20),
     codigo_particular_articulo VARCHAR(40),
     descripcion_articulo      VARCHAR(255),
@@ -119,9 +120,10 @@ CREATE TABLE IF NOT EXISTS raw.raw_pp_monthly (
 );
 
 CREATE TABLE IF NOT EXISTS raw.raw_pp_provider (
-    -- Descuento PP por marca de proveedor (fuente: DESC_PP_PROV en MySQL AWS)
+    -- Descuento PP por artículo de proveedor (fuente: DESC_PP_PROV en MySQL AWS)
     -- Se recarga completo en cada sincronización (TRUNCATE + COPY).
-    -- Solo se cargan registros ACTIVO = 1. Deduplicación en dbt staging.
+    -- Solo se cargan registros ACTIVO = 1 con CODIGOARTICULO no nulo.
+    article_code       VARCHAR(20),
     brand_code         VARCHAR(20),
     provider_code      VARCHAR(20),
     provider_name      VARCHAR(200),

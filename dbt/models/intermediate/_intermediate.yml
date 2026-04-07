@@ -47,65 +47,19 @@ models:
       - name: descripcion_articulo_master
         description: "Descripción desde product-service. Fallback a la descripción del comprobante."
 
-  - name: int_sales_prices
-    description: >
-      Ventas con precio proveedor vigente al momento de la venta (ASOF join).
-      Replica la lógica de PriceHistoryRepository.getPriceAtTime() en TypeScript.
-      NOTA: La lógica usa el primer precio con fecha >= venta (puede ser futuro),
-      replicando el comportamiento de producción aunque sea técnicamente incorrecto.
-    columns:
-      - name: precio_proveedor_vigente
-        description: "Precio proveedor del catálogo vigente al momento de la venta."
-      - name: tiene_precio_historico
-        description: "True si se encontró precio en el historial o al menos el precio actual."
-
-  - name: int_sales_calculated
-    description: >
-      Ventas con precio_final calculado según escenario:
-      GM_DESCONTADO: precio proveedor vigente con descuento aplicado.
-      SECUNDARIA_CERO: precio = 0 para evitar doble conteo.
-      PRECIO_ESTANDAR: precio_venta del comprobante.
-    columns:
-      - name: precio_final
-        description: "Precio final calculado. Columna central para todas las agregaciones."
-        tests:
-          - not_null
-      - name: metodo_precio
-        description: "GM_DESCONTADO | SECUNDARIA_CERO | PRECIO_ESTANDAR"
-        tests:
-          - not_null
-          - accepted_values:
-              values: ['GM_DESCONTADO', 'SECUNDARIA_CERO', 'PRECIO_ESTANDAR']
-
-  - name: int_sales_breakdown
-    description: >
-      Agrega sucursal y breakdowns pre-calculados GM/DS/PPAL.
-      Último paso antes de int_sales_pp.
-    columns:
-      - name: sucursal
-        description: "BA | MDP | PICO | ROSARIO | UNKNOWN — mapeado desde PDV y depósito."
-        tests:
-          - not_null
-      - name: gm_monto
-        description: "Monto de la venta si es GM, 0 si no."
-      - name: ds_monto
-        description: "Monto si es DS no-GM, 0 si no."
-      - name: ppal_monto
-        description: "Monto si es PPAL no-GM, 0 si no."
-
   - name: int_sales_pp
     description: >
       Modelo final de la cadena intermediate. Incorpora los tres campos de Pronto Pago (PP)
-      a cada línea de venta mediante LEFT JOINs con stg_pp_monthly y stg_pp_provider.
-      Es la entrada directa de fct_sales.
+      y datos de proveedor a cada línea de venta mediante LEFT JOINs con
+      stg_pp_monthly y stg_pp_provider. Es la entrada directa de fct_sales.
 
       Campos nuevos:
+        provider_code/name → proveedor del artículo (desde DESC_PP_PROV keyed por article_code).
         pp_descuento_pct   → % PP mensual del cliente (0 para cliente '01129', default 22 si falta).
-        pp_precio          → precio_final × (1 - pp_descuento_pct/100).
-        pp_costo_proveedor → costo_venta × (1 - descuento PP de la marca / 100).
+        pp_precio          → precio_total_articulo × (1 - descuento_comprobante/100) × (1 - pp_descuento_pct/100).
+        pp_costo_proveedor → costo_venta × (1 - descuento PP del artículo / 100).
 
-      Equivalencias con RENT_COMERCIAL: DESC_PP_CLI → pp_descuento_pct,
-      TOTAL_PP → pp_precio, COMPRAS_PP → pp_costo_proveedor.
+      Equivalencias con RENT_COMERCIAL: TOTAL_PP → pp_precio, COMPRAS_PP → pp_costo_proveedor.
     columns:
       - name: pp_descuento_pct
         description: >
@@ -115,7 +69,7 @@ models:
         tests:
           - not_null
       - name: pp_precio
-        description: "precio_final con descuento PP del cliente aplicado. Igual a precio_final si cliente '01129'."
+        description: "precio_total_articulo con descuento PP del cliente aplicado."
         tests:
           - not_null
       - name: pp_costo_proveedor

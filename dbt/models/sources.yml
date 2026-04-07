@@ -30,4 +30,4 @@ sources:
         description: "Descuento PP promedio mensual desde distriap_distri.PROMEDIO_PRONTOPAGO_V2. Un registro por mes."
 
       - name: raw_pp_provider
-        description: "Descuento PP por marca de proveedor desde DESC_PP_PROV (MySQL AWS). Solo registros ACTIVO = 1."
+        description: "Descuento PP por artículo de proveedor desde DESC_PP_PROV (MySQL AWS). Solo registros ACTIVO = 1 con CODIGOARTICULO no nulo."

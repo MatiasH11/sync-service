@@ -265,17 +265,19 @@ models:
 
   - name: stg_pp_provider
     description: >
-      Descuento PP (pronto pago) por marca de proveedor.
-      Cada proveedor puede tener un % de descuento PP distinto por marca.
-      Se carga solo con registros ACTIVO = 1.
-      Keyed por brand_code (CODIGOMARCA). Marcas ausentes → descuento 0% en int_sales_pp.
+      Descuento PP (pronto pago) por artículo de proveedor.
+      Cada artículo puede tener un % de descuento PP distinto según su proveedor.
+      Se carga solo con registros ACTIVO = 1 y CODIGOARTICULO no nulo.
+      Keyed por article_code (CODIGOARTICULO). Artículos ausentes → descuento 0% en int_sales_pp.
       Fuente: DESC_PP_PROV (MySQL AWS) vía raw.raw_pp_provider.
     columns:
-      - name: brand_code
-        description: "Código de marca interna (PK). Mismo valor que codigo_marca_int en stg_articulos."
+      - name: article_code
+        description: "Código de artículo (PK). Join key con codigo_articulo en ventas."
         tests:
           - not_null
           - unique
+      - name: brand_code
+        description: "Código de marca interna del artículo"
       - name: provider_code
         description: "Código del proveedor dueño del descuento PP"
       - name: provider_name
@@ -283,4 +285,4 @@ models:
       - name: brand_description
         description: "Descripción de la marca"
       - name: pp_discount_pct
-        description: "Porcentaje de descuento PP que otorga el proveedor para esta marca (ej: 5.0)"
+        description: "Porcentaje de descuento PP que otorga el proveedor para este artículo (ej: 5.0)"

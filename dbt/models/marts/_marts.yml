@@ -5,110 +5,173 @@ models:
     description: >
       Sales fact table. Single source of truth for api-vendedores and api-quantix.
       Replaces fct_sales (DuckDB) and RENT_COMERCIAL (MySQL).
-      All business logic pre-applied: GM discounts, account resolution, breakdowns.
+      Design: comprobante is truth, enrichments are lookups, only PP is processed,
+      flags for complex detection (GM, secondary), no pre-aggregations.
+      Lineage: stg_sales → int_sales_accounts → int_sales_gm → int_sales_enriched → int_sales_pp → fct_sales.
     columns:
-      - name: voucher_type
-        description: "FA, FB, NCA, NCB, NDA, NDB, RE"
-        tests: [not_null]
-      - name: voucher_number
-        description: "Invoice number"
-        tests: [not_null]
+
+      # -----------------------------------------------------------------------
+      # Comprobante
+      # -----------------------------------------------------------------------
       - name: source
-        description: "MySQL source: DIMDS, DIMPPAL, DISDS, DISPPAL"
+        description: "Comprobante. MySQL source database: DIMDS, DIMPPAL, DISDS, DISPPAL"
         tests:
           - not_null
           - accepted_values:
               values: ['DIMDS', 'DIMPPAL', 'DISDS', 'DISPPAL']
+      - name: voucher_type
+        description: "Comprobante. FA, FB, NCA, NCB, NDA, NDB, RE"
+        tests: [not_null]
+      - name: voucher_number
+        description: "Comprobante. Invoice number"
+        tests: [not_null]
+      - name: voucher_line
+        description: "Comprobante. Line number within the invoice body (NROLINEA)"
+        tests: [not_null]
+      - name: point_of_sale
+        description: "Comprobante. Point of sale number (NROPUNTODEVENTA)"
+        tests: [not_null]
+      - name: deposit_code
+        description: "Comprobante. Article-level deposit code (CODIGODEPOSITO)"
+
+      # -----------------------------------------------------------------------
+      # Temporal
+      # -----------------------------------------------------------------------
+      - name: invoice_datetime
+        description: "Comprobante. Full timestamp of the invoice"
+        tests: [not_null]
+      - name: year_month
+        description: "Calculated. YYYY-MM from invoice_datetime. Use for GROUP BY and partitioning."
+        tests: [not_null]
+
+      # -----------------------------------------------------------------------
+      # Classification (calculated)
+      # -----------------------------------------------------------------------
       - name: branch
-        description: "BA, MDP, PICO, ROSARIO, UNKNOWN"
+        description: "Calculated. BA | MDP | PICO | ROSARIO | UNKNOWN — derived from point_of_sale + deposit_code"
         tests: [not_null]
       - name: consumption_type
-        description: "DS or PPAL"
+        description: "Calculated. DS or PPAL — derived from source database"
         tests:
           - not_null
           - accepted_values:
               values: ['DS', 'PPAL']
-      - name: invoice_datetime
-        description: "Full timestamp of the invoice"
-        tests: [not_null]
-      - name: year_month
-        description: "Month key in format YYYY-MM. Use for GROUP BY and date filtering."
-        tests: [not_null]
+
+      # -----------------------------------------------------------------------
+      # Client
+      # -----------------------------------------------------------------------
       - name: client_code
-        description: "Original client code from the invoice"
+        description: "Comprobante. Original client code from the invoice"
         tests: [not_null]
       - name: account_code
-        description: "Resolved main account code. Use this for all joins and aggregations."
+        description: "Enriched. Resolved main account code. Use this for all joins and aggregations."
         tests: [not_null]
       - name: account_name
-        description: "Name of the main account"
+        description: "Enriched. Name of the main account"
         tests: [not_null]
+      - name: client_particular_code
+        description: "Enriched. Particular/external code from client-service. Key for api-quantix."
       - name: vendor_code
-        description: "Vendor assigned to the main account"
+        description: "Enriched. Vendor assigned to the main account"
+      - name: vendor_name
+        description: "Enriched. Vendor name"
+      - name: zone_code
+        description: "Enriched. Commercial zone code"
+
+      # -----------------------------------------------------------------------
+      # Article
+      # -----------------------------------------------------------------------
       - name: article_code
-        description: "Article code"
+        description: "Comprobante. Article code"
         tests: [not_null]
+      - name: article_particular_code
+        description: "Enriched. Particular code — coalesce(product-service master, invoice value)"
+      - name: article_description
+        description: "Enriched. Article description — coalesce(product-service master, invoice value)"
       - name: rubro_code
-        description: "Super-rubro code. Codes -1 and 377 are special/excluded articles."
-      - name: quantity
-        description: "Units sold"
+        description: "Enriched. Super-rubro code. Codes -1 and 377 → is_valid_article = false."
+      - name: rubro_description
+        description: "Enriched. Super-rubro description"
+      - name: rubro_min_units
+        description: "Enriched. Minimum units for the super-rubro. 0 if no master record. Used for SR achievement logic."
+      - name: brand_code
+        description: "Enriched. Integer brand code from RDS"
+      - name: brand_id
+        description: "Enriched. Brand UUID from product-service"
+      - name: brand_name
+        description: "Enriched. Brand name"
+      - name: product_line_id
+        description: "Enriched. Product line UUID from product-service"
+      - name: product_line_name
+        description: "Enriched. Product line name"
+
+      # -----------------------------------------------------------------------
+      # Provider
+      # -----------------------------------------------------------------------
+      - name: provider_code
+        description: "Enriched. Provider code from DESC_PP_PROV keyed by article_code. NULL if article has no PP config."
+      - name: provider_name
+        description: "Enriched. Provider name from DESC_PP_PROV. NULL if article has no PP config."
+
+      # -----------------------------------------------------------------------
+      # Metrics
+      # -----------------------------------------------------------------------
+      - name: article_unit_price
+        description: "Comprobante. Price per unit as invoiced (PRECIOUNITARIO)"
         tests: [not_null]
-      - name: sale_price
-        description: "Total line price as recorded in MySQL (after all MySQL-level discounts)"
+      - name: article_quantity
+        description: "Comprobante. Units sold (CANTIDAD)"
         tests: [not_null]
-      - name: provider_price
-        description: "Cost of goods recorded in the invoice (COSTOVENTA)"
-      - name: provider_price_at_sale
-        description: "Provider catalog price at the moment of the sale (ASOF join with price_history)"
-      - name: final_price
-        description: >
-          Calculated final price:
-          - GM sale: provider_price_at_sale × ((100 - gm_discount_pct) / 100) × quantity
-          - Secondary account: 0 (avoid double counting)
-          - Standard: sale_price
+      - name: line_discount_pct
+        description: "Comprobante. Line-level discount % applied to this line (DESCUENTO)"
+      - name: header_bonification_pct
+        description: "Comprobante. Voucher-level bonification % (DESCUENTOPORCENTAJE / BONIFICACION)"
+      - name: line_total
+        description: "Comprobante. Invoice line total (PRECIOTOTAL). article_unit_price × article_quantity × (1 - line_discount_pct/100). Before header bonification."
         tests: [not_null]
-      - name: is_gm_sale
-        description: "True if: voucher_type=RE + point_of_sale IN (17,18,19,109) + barrio has discount format"
+      - name: sale_total
+        description: "Calculated. Net sale total: line_total × (1 - header_bonification_pct/100). Equivalent to TOTAL in RENT_COMERCIAL and PRECIO in DuckDB fct_sales."
         tests: [not_null]
-      - name: is_secondary_account
-        description: "True if this client is a secondary (Excel) account mapped to a main account"
-        tests: [not_null]
+      - name: cost_total
+        description: "Comprobante. Cost of goods for the line (COSTOVENTA)"
+
+      # -----------------------------------------------------------------------
+      # PP (Pronto Pago) — only processed totals in the table
+      # -----------------------------------------------------------------------
       - name: pp_discount_pct
         description: >
-          Monthly prompt payment (PP) discount % applied to the client.
-          Uniform for all clients in the month except client_particular_code '01129' (Estado) which is always 0.
-          Source: PROMEDIO_PRONTOPAGO_V2. Fallback: 22 if no record exists for the month.
+          Calculated. Monthly PP discount % for the client.
+          Client '01129' (Estado) always 0%.
+          Source: PROMEDIO_PRONTOPAGO_V2. Fallback: 22%.
         tests: [not_null]
-      - name: pp_price
+      - name: pp_sale_total
         description: >
-          Sale price after applying the client PP discount.
-          Calculated: final_price × ((100 - pp_discount_pct) / 100).
-          Equals final_price for client '01129' (0% discount).
-          Equivalent to TOTAL_PP in the legacy RENT_COMERCIAL table.
+          Calculated. sale_total × ((100 - pp_discount_pct) / 100).
+          Equivalent to TOTAL_PP in RENT_COMERCIAL.
         tests: [not_null]
-      - name: pp_provider_cost
+      - name: pp_cost_total
         description: >
-          Provider cost net of prompt payment discount.
-          Calculated: provider_price × ((100 - brand PP discount%) / 100).
-          The brand PP discount comes from DESC_PP_PROV keyed by brand_code.
-          Brands without a PP configuration get 0% discount (pp_provider_cost = provider_price).
-          Equivalent to COMPRAS_PP in the legacy RENT_COMERCIAL table.
+          Calculated. cost_total × ((100 - article PP%) / 100).
+          Article PP from DESC_PP_PROV keyed by article_code. Defaults to 0%.
+          Equivalent to COMPRAS_PP in RENT_COMERCIAL.
+        tests: [not_null]
+
+      # -----------------------------------------------------------------------
+      # Flags
+      # -----------------------------------------------------------------------
+      - name: is_gm_sale
+        description: >
+          Calculated. True if voucher_type=RE + point_of_sale IN (17,18,19,109) + barrio matches discount regex.
+          Use to filter or segment GM vs non-GM sales.
+        tests: [not_null]
+      - name: is_secondary_account
+        description: >
+          Enriched. True if client is a secondary (Excel) account mapped to a main account.
+          Use to exclude from aggregations to avoid double counting (main account already includes these sales).
         tests: [not_null]
       - name: is_valid_article
-        description: "False if rubro_code IN (-1, 377)"
+        description: "Calculated. False if rubro_code IN (-1, 377). Use to filter standard article aggregations."
         tests: [not_null]
-      - name: price_method
-        description: "GM_DISCOUNTED | SECONDARY_ZEROED | STANDARD_PRICE"
-        tests:
-          - not_null
-          - accepted_values:
-              values: ['GM_DISCOUNTED', 'SECONDARY_ZEROED', 'STANDARD_PRICE']
-      - name: gm_amount
-        description: "final_price if is_gm_sale, else 0"
-      - name: ds_amount
-        description: "final_price if DS and not GM, else 0"
-      - name: ppal_amount
-        description: "final_price if PPAL and not GM, else 0"
 
   - name: fct_clients
     description: >

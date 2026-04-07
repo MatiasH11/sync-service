@@ -4,27 +4,29 @@
 -- Replaces fct_sales (DuckDB) for api-vendedores
 -- and RENT_COMERCIAL (MySQL) for api-quantix.
 --
--- All business logic is pre-applied:
---   - Account resolution (secondary → main account)
---   - GM discount calculation with historical price lookup
---   - Pre-calculated breakdowns (GM / DS / PPAL)
---   - Prompt payment (PP) fields: discount %, PP price, PP provider cost
+-- Design principles:
+--   1. Comprobante is truth — expose what Flexxus recorded, untransformed
+--   2. Enrichments are lookups — dimensions from masters to avoid consumer joins
+--   3. Only process what the consumer can't — PP requires monthly external tables
+--   4. Flags for complex detection — GM and secondary require multi-table logic
+--   5. No pre-aggregations — breakdowns belong in the reporting layer
+--
+-- Column origins:
+--   Comprobante  — historical truth from the invoice, never changes
+--   Enriched     — joined from current master tables, may change if masters change
+--   Calculated   — business logic applied by our pipeline
+--
+-- Lineage: stg_sales → int_sales_accounts → int_sales_gm → int_sales_enriched → int_sales_pp → fct_sales
 --
 -- Incremental strategy: delete+insert
 --   Dagster passes min_month and max_month vars when running a partition.
---   On each run, the rows for that month are deleted and re-inserted.
---   First run (no table yet): builds the complete historical table.
 --   Full rebuild: dbt build --full-refresh --select fct_sales
---
--- Common query patterns:
---   WHERE year_month = '2026-03' AND vendor_code = 'V01'
---   GROUP BY year_month, account_code, brand_name
 
 {{
     config(
         materialized         = 'incremental',
         incremental_strategy = 'delete+insert',
-        unique_key           = ['source', 'voucher_type', 'voucher_number', 'article_code'],
+        unique_key           = ['source', 'voucher_type', 'voucher_number', 'voucher_line'],
         on_schema_change     = 'fail',
         post_hook            = [
             "CREATE INDEX IF NOT EXISTS idx_fct_sales_vendor_yearmonth  ON {{ this }} (vendor_code, year_month)",
@@ -41,13 +43,12 @@ select
     -- -------------------------------------------------------------------------
     -- Comprobante
     -- -------------------------------------------------------------------------
+    source,
     voucher_type,
     voucher_number,
-    source,
+    voucher_line,
     point_of_sale,
     deposit_code,
-    branch,
-    consumption_type,
 
     -- -------------------------------------------------------------------------
     -- Temporal
@@ -56,7 +57,13 @@ select
     year_month,
 
     -- -------------------------------------------------------------------------
-    -- Client (always the main account)
+    -- Classification (calculated)
+    -- -------------------------------------------------------------------------
+    branch,
+    consumption_type,
+
+    -- -------------------------------------------------------------------------
+    -- Client
     -- -------------------------------------------------------------------------
     client_code,
     account_code,
@@ -65,7 +72,6 @@ select
     vendor_code,
     vendor_name,
     zone_code,
-    is_secondary_account,
 
     -- -------------------------------------------------------------------------
     -- Article
@@ -75,65 +81,69 @@ select
     article_description,
     rubro_code,
     rubro_description,
-    min_units_rubro,
+    rubro_min_units,
     brand_code,
     brand_id,
     brand_name,
-    line_id,
-    line_name,
+    product_line_id,
+    product_line_name,
+
+    -- -------------------------------------------------------------------------
+    -- Provider
+    -- -------------------------------------------------------------------------
+    provider_code,
+    provider_name,
 
     -- -------------------------------------------------------------------------
     -- Metrics
     -- -------------------------------------------------------------------------
-    quantity,
-    sale_price,             -- Total line price as recorded in MySQL
-    provider_price,         -- Cost of goods (COSTOVENTA from comprobante)
-    provider_price_at_sale, -- Provider catalog price at sale datetime (ASOF join)
-    final_price,            -- Calculated: GM discounted / 0 if secondary / sale_price
+    article_unit_price,
+    article_quantity,
+    line_discount_pct,
+    header_bonification_pct,
+    line_total,
+    sale_total,
+    cost_total,
 
     -- -------------------------------------------------------------------------
-    -- GM (Gran Minorista)
+    -- PP (Pronto Pago) — only processed totals in the table
     -- -------------------------------------------------------------------------
-    is_gm_sale,
-    gm_discount_pct,
-    gm_discount_amount,
-
-    -- -------------------------------------------------------------------------
-    -- Pre-calculated breakdowns (mutually exclusive)
-    -- -------------------------------------------------------------------------
-    gm_quantity,
-    gm_amount,
-    ds_quantity,
-    ds_amount,
-    ppal_quantity,
-    ppal_amount,
-
-    -- -------------------------------------------------------------------------
-    -- PP (Pronto Pago)
-    -- -------------------------------------------------------------------------
-    pp_discount_pct,        -- Monthly client PP discount %. 0 for client '01129'. Default 22 if missing.
-    pp_price,               -- Calculated: final_price × (1 - pp_discount_pct/100)
-    pp_provider_cost,       -- Calculated: provider_price × (1 - brand PP discount/100)
+    pp_discount_pct,
+    pp_sale_total,
+    pp_cost_total,
 
     -- -------------------------------------------------------------------------
     -- Flags
     -- -------------------------------------------------------------------------
-    is_valid_article,       -- false if rubro_code IN (-1, 377)
-    price_method            -- GM_DISCOUNTED | SECONDARY_ZEROED | STANDARD_PRICE
+    is_gm_sale,
+    is_secondary_account,
+    is_valid_article
 
 from (
 
     select
+        fuente                              as source,
         tipo_comprobante                    as voucher_type,
         numero_comprobante                  as voucher_number,
-        fuente                              as source,
+        nro_linea                           as voucher_line,
         nro_punto_venta                     as point_of_sale,
         codigo_deposito_articulo            as deposit_code,
-        sucursal                            as branch,
-        tipo_consumo                        as consumption_type,
 
         fecha_comprobante                   as invoice_datetime,
         to_char(fecha_comprobante, 'YYYY-MM') as year_month,
+
+        case
+            when nro_punto_venta in (19, 1)                                     then 'BA'
+            when nro_punto_venta = 8888 and codigo_deposito_articulo = '001'    then 'BA'
+            when nro_punto_venta in (18, 7)                                     then 'MDP'
+            when nro_punto_venta = 2222 and codigo_deposito_articulo = '003'    then 'MDP'
+            when nro_punto_venta in (17, 6)                                     then 'PICO'
+            when nro_punto_venta = 2222 and codigo_deposito_articulo = '001'    then 'PICO'
+            when nro_punto_venta in (109, 8)                                    then 'ROSARIO'
+            when nro_punto_venta = 8888 and codigo_deposito_articulo = '002'    then 'ROSARIO'
+            else 'UNKNOWN'
+        end                                 as branch,
+        tipo_consumo                        as consumption_type,
 
         codigo_cliente                      as client_code,
         codigo_cuenta_resuelta              as account_code,
@@ -142,54 +152,41 @@ from (
         codigo_vendedor_cliente             as vendor_code,
         nombre_vendedor                     as vendor_name,
         codigo_zona_cliente                 as zone_code,
-        es_cuenta_secundaria                as is_secondary_account,
 
         codigo_articulo                     as article_code,
         codigo_particular_articulo_master   as article_particular_code,
         descripcion_articulo_master         as article_description,
         codigo_super_rubro                  as rubro_code,
         descripcion_super_rubro             as rubro_description,
-        unidades_min_rubro                  as min_units_rubro,
+        unidades_min_rubro                  as rubro_min_units,
         codigo_marca_int                    as brand_code,
         marca_id                            as brand_id,
         marca                               as brand_name,
-        linea_id                            as line_id,
-        linea                               as line_name,
+        linea_id                            as product_line_id,
+        linea                               as product_line_name,
 
-        cantidad_articulo                   as quantity,
-        precio_total_articulo               as sale_price,
-        costo_venta_articulo                as provider_price,
-        precio_proveedor_vigente            as provider_price_at_sale,
-        precio_final                        as final_price,
+        provider_code,
+        provider_name,
 
-        es_venta_gm                         as is_gm_sale,
-        gm_descuento_pct                    as gm_discount_pct,
-        gm_descuento_monto                  as gm_discount_amount,
-
-        gm_cantidad                         as gm_quantity,
-        gm_monto                            as gm_amount,
-        ds_cantidad                         as ds_quantity,
-        ds_monto                            as ds_amount,
-        ppal_cantidad                       as ppal_quantity,
-        ppal_monto                          as ppal_amount,
+        precio_unitario_articulo            as article_unit_price,
+        cantidad_articulo                   as article_quantity,
+        descuento_articulo                  as line_discount_pct,
+        descuento_comprobante               as header_bonification_pct,
+        precio_total_articulo               as line_total,
+        precio_total_articulo * ((100 - descuento_comprobante) / 100) as sale_total,
+        costo_venta_articulo                as cost_total,
 
         pp_descuento_pct                    as pp_discount_pct,
-        pp_precio                           as pp_price,
-        pp_costo_proveedor                  as pp_provider_cost,
+        pp_precio                           as pp_sale_total,
+        pp_costo_proveedor                  as pp_cost_total,
 
-        es_articulo_valido                  as is_valid_article,
-        case metodo_precio
-            when 'GM_DESCONTADO'    then 'GM_DISCOUNTED'
-            when 'SECUNDARIA_CERO'  then 'SECONDARY_ZEROED'
-            else 'STANDARD_PRICE'
-        end                                 as price_method
+        es_venta_gm                         as is_gm_sale,
+        es_cuenta_secundaria                as is_secondary_account,
+        es_articulo_valido                  as is_valid_article
 
     from {{ ref('int_sales_pp') }}
 
     {% if is_incremental() %}
-    -- Dagster injects min_month and max_month for the current partition.
-    -- On incremental runs, only the rows for that month are deleted and re-inserted.
-    -- This aligns with the hourly_sales_schedule which always loads the last 2 months.
     where to_char(fecha_comprobante, 'YYYY-MM')
           between '{{ var("min_month") }}' and '{{ var("max_month") }}'
     {% endif %}

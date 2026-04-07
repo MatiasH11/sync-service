@@ -35,6 +35,7 @@ def build_sales_query(cabeza: str, cuerpo: str, tipo_consumo: str, db: str) -> s
             c.CODIGOCLIENTE                                         AS codigo_cliente,
             c.RAZONSOCIAL                                           AS razon_social_cliente,
             c.DESCUENTOPORCENTAJE                                   AS descuento_comprobante,
+            CAST(cu.LINEA AS UNSIGNED)                              AS nro_linea,
             cu.CODIGOARTICULO                                       AS codigo_articulo,
             cu.CODIGOPARTICULAR                                     AS codigo_particular_articulo,
             cu.DESCRIPCION                                          AS descripcion_articulo,

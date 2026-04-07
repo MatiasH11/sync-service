@@ -18,6 +18,7 @@ class RawSaleRow(TypedDict):
     descuento_comprobante: float
 
     # Artículo (de CUERPO)
+    nro_linea: int
     codigo_articulo: str
     codigo_particular_articulo: str
     descripcion_articulo: str

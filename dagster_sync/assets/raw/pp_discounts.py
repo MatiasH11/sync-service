@@ -3,7 +3,7 @@ from dagster import AssetExecutionContext, MaterializeResult, MetadataValue, Ret
 from dagster_sync.resources import DistriRdsDbResource, WarehouseResource
 
 _PP_MONTHLY_COLUMNS = ['pp_year', 'pp_month', 'pp_discount_pct']
-_PP_PROVIDER_COLUMNS = ['brand_code', 'provider_code', 'provider_name', 'brand_description', 'pp_discount_pct']
+_PP_PROVIDER_COLUMNS = ['article_code', 'brand_code', 'provider_code', 'provider_name', 'brand_description', 'pp_discount_pct']
 
 
 @asset(
@@ -23,7 +23,7 @@ def raw_pp_monthly(
     Fuente: distriap_distri.PROMEDIO_PRONTOPAGO_V2 (cross-DB query en MySQL AWS).
     Destino: raw.raw_pp_monthly (TRUNCATE + INSERT — reemplaza siempre el estado completo).
 
-    Este valor se usa en int_sales_pp para calcular pp_price y pp_discount_pct.
+    Este valor se usa en int_sales_pp para calcular pp_sale_total y pp_discount_pct.
     El fallback cuando no hay registro para un mes es 22 (definido en int_sales_pp).
     """
     context.log.info('Extracting monthly PP discounts from distriap_distri.PROMEDIO_PRONTOPAGO_V2')
@@ -54,7 +54,7 @@ def raw_pp_monthly(
     group_name='raw',
     retry_policy=RetryPolicy(max_retries=3, delay=60),
     op_tags={'resource': 'mysql'},
-    description='Descuentos PP por marca de proveedor desde DESC_PP_PROV → raw.raw_pp_provider',
+    description='Descuentos PP por artículo de proveedor desde DESC_PP_PROV → raw.raw_pp_provider',
 )
 def raw_pp_provider(
     context: AssetExecutionContext,
@@ -62,27 +62,29 @@ def raw_pp_provider(
     warehouse: WarehouseResource,
 ) -> MaterializeResult:
     """
-    Carga los descuentos PP a nivel de marca de proveedor.
+    Carga los descuentos PP a nivel de artículo de proveedor.
 
-    Fuente: DESC_PP_PROV en MySQL AWS — keyed por CODIGOMARCA (marca interna).
+    Fuente: DESC_PP_PROV en MySQL AWS — keyed por CODIGOARTICULO.
     Destino: raw.raw_pp_provider (TRUNCATE + INSERT — reemplaza siempre el estado completo).
-    Solo se cargan registros ACTIVO = 1.
+    Solo se cargan registros ACTIVO = 1 con CODIGOARTICULO no nulo.
 
-    Este valor se usa en int_sales_pp para calcular pp_provider_cost por línea de venta.
-    Marcas sin registro en esta tabla quedan con descuento PP = 0 (via COALESCE en dbt).
+    Este valor se usa en int_sales_pp para calcular pp_cost_total por línea de venta.
+    Artículos sin registro en esta tabla quedan con descuento PP = 0 (via COALESCE en dbt).
     """
     context.log.info('Extracting PP provider discounts from DESC_PP_PROV')
 
     rows = distri_rds.query("""
         SELECT
-            CODIGOMARCA   AS brand_code,
-            CODIGOPROV    AS provider_code,
-            RAZONSOCIAL   AS provider_name,
-            DESCRIPCION   AS brand_description,
-            DESC_PP       AS pp_discount_pct
+            CODIGOARTICULO AS article_code,
+            CODIGOMARCA    AS brand_code,
+            CODIGOPROV     AS provider_code,
+            RAZONSOCIAL    AS provider_name,
+            DESCRIPCION    AS brand_description,
+            DESC_PP        AS pp_discount_pct
         FROM DESC_PP_PROV
         WHERE ACTIVO = 1
-        ORDER BY CODIGOMARCA
+          AND CODIGOARTICULO IS NOT NULL
+        ORDER BY CODIGOARTICULO
     """)
 
     inserted = warehouse.truncate_and_insert('raw.raw_pp_provider', _PP_PROVIDER_COLUMNS, rows)

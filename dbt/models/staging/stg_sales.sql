@@ -20,9 +20,10 @@ renamed as (
         -- Cliente (de CABEZA)
         codigo_cliente,
         razon_social_cliente,
-        descuento_comprobante::numeric      as descuento_comprobante,
+        abs(descuento_comprobante::numeric)  as descuento_comprobante,
 
         -- Artículo (de CUERPO)
+        nro_linea::int                      as nro_linea,
         codigo_articulo,
         codigo_particular_articulo,
         descripcion_articulo,
