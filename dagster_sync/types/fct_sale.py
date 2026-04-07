@@ -89,9 +89,10 @@ class FctSaleRow(TypedDict):
     # -------------------------------------------------------------------------
     # PP (Pronto Pago) — processed totals
     # -------------------------------------------------------------------------
-    pp_discount_pct:        float   # Monthly PP %. Client '01129' = 0%. Fallback 22%.
-    pp_sale_total:          float   # sale_total × (1 - header_bonification_pct/100) × (1 - pp_discount_pct/100). Equiv. TOTAL_PP.
-    pp_cost_total:          float   # cost_total × (1 - article PP%/100). Equiv. COMPRAS_PP.
+    pp_discount_pct:            float   # Monthly PP %. Client '01129' = 0%. Fallback 22%.
+    pp_sale_total:              float   # sale_total × (1 - pp_discount_pct/100). Equiv. TOTAL_PP.
+    pp_provider_discount_pct:   float   # PP % from DESC_PP_PROV by article. 0 if not configured.
+    pp_cost_total:              float   # cost_total × (1 - pp_provider_discount_pct/100). Equiv. COMPRAS_PP.
 
     # -------------------------------------------------------------------------
     # Flags

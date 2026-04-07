@@ -71,6 +71,8 @@ select
              * ((100 - coalesce(pm.pp_discount_pct, 22)) / 100)
     end as pp_precio,
 
+    coalesce(pp.article_pp_discount_pct, 0) as pp_descuento_proveedor_pct,
+
     v.costo_venta_articulo
         * ((100 - coalesce(pp.article_pp_discount_pct, 0)) / 100) as pp_costo_proveedor
 

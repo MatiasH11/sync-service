@@ -149,10 +149,13 @@ models:
           Calculated. sale_total × ((100 - pp_discount_pct) / 100).
           Equivalent to TOTAL_PP in RENT_COMERCIAL.
         tests: [not_null]
+      - name: pp_provider_discount_pct
+        description: >
+          Enriched. PP discount % from DESC_PP_PROV keyed by article_code.
+          0 if the article has no PP config. Used to calculate pp_cost_total.
       - name: pp_cost_total
         description: >
-          Calculated. cost_total × ((100 - article PP%) / 100).
-          Article PP from DESC_PP_PROV keyed by article_code. Defaults to 0%.
+          Calculated. cost_total × ((100 - pp_provider_discount_pct) / 100).
           Equivalent to COMPRAS_PP in RENT_COMERCIAL.
         tests: [not_null]
 

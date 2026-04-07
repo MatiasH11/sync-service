@@ -110,6 +110,7 @@ select
     -- -------------------------------------------------------------------------
     pp_discount_pct,
     pp_sale_total,
+    pp_provider_discount_pct,
     pp_cost_total,
 
     -- -------------------------------------------------------------------------
@@ -178,6 +179,7 @@ from (
 
         pp_descuento_pct                    as pp_discount_pct,
         pp_precio                           as pp_sale_total,
+        pp_descuento_proveedor_pct          as pp_provider_discount_pct,
         pp_costo_proveedor                  as pp_cost_total,
 
         es_venta_gm                         as is_gm_sale,
