@@ -72,10 +72,12 @@ enriquecido as (
         m.linea_id,
         m.linea,
 
-        -- Validez general (montos): excluir rubros claramente no-comerciales
+        -- Validez general (montos): producción no filtra por rubro para montos,
+        -- solo excluye artículos específicos (ya excluidos en la extracción).
+        -- Aquí solo descartamos NULL y -1 (datos rotos / sin rubro).
         case
             when r.codigo_super_rubro is null
-              or r.codigo_super_rubro::int in (-1, 377)
+              or r.codigo_super_rubro::int = -1
             then false
             else true
         end as es_articulo_valido,

@@ -41,11 +41,11 @@ models:
       pero tendrán dimensiones en NULL y es_articulo_valido = false.
     columns:
       - name: es_articulo_valido
-        description: "False si codigo_super_rubro es NULL, -1 o 377. Filtro general para montos."
+        description: "False si codigo_super_rubro es NULL o -1. Filtro general para montos (producción no filtra montos por rubro)."
         tests:
           - not_null
       - name: es_valido_para_unidades
-        description: "False si es_articulo_valido es false O descripcion_super_rubro = 'SIN SUPERRUBRO' (rubro sin registro en UNIDADESXRUBRO). Réplica de IFNULL(u.CODIGOSUPERRUBRO, -1) de producción."
+        description: "False si rubro NULL/-1/377 O descripcion_super_rubro = 'SIN SUPERRUBRO' (sin registro en UNIDADESXRUBRO). Réplica de producción: unidades excluyen 377 y rubros sin UNIDADESXRUBRO."
         tests:
           - not_null
       - name: descripcion_articulo_master

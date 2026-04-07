@@ -173,10 +173,10 @@ models:
           Use to exclude from aggregations to avoid double counting (main account already includes these sales).
         tests: [not_null]
       - name: is_valid_article
-        description: "Calculated. False if rubro_code is NULL, -1 or 377. General validity for amount aggregations."
+        description: "Calculated. False if rubro_code is NULL or -1. General validity for amount aggregations (production does not filter amounts by rubro)."
         tests: [not_null]
       - name: is_valid_for_units
-        description: "Calculated. False if is_valid_article is false OR rubro has no UNIDADESXRUBRO entry (SIN SUPERRUBRO). Replicates production IFNULL(u.CODIGOSUPERRUBRO, -1). Use for unit aggregations."
+        description: "Calculated. False if rubro NULL/-1/377 or no UNIDADESXRUBRO entry (SIN SUPERRUBRO). Replicates production unit filtering. Use for unit aggregations."
         tests: [not_null]
 
   - name: fct_clients
